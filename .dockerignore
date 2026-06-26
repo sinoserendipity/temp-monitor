@@ -1,0 +1,10 @@
+data/
+*.db
+__pycache__/
+*.pyc
+esp32_*.ino
+README.md
+.git/
+.github/
+docker-compose.yml
+*.tar.gz

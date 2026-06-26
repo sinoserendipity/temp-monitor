@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESP32 DHT22 温湿度监控</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --cyan: #00f0ff;
+    --amber: #ff9e00;
+    --green: #3fb950;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'Segoe UI', 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px;
+    min-height: 100vh;
+  }
+  .header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 24px; background: var(--card); border-radius: 12px;
+    border: 1px solid var(--border); margin-bottom: 20px;
+    background: linear-gradient(135deg, #161b22 0%, #1c2333 100%);
+  }
+  .header h1 {
+    font-size: 20px; font-weight: 600;
+    background: linear-gradient(90deg, var(--cyan), var(--amber));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .header .status {
+    font-size: 13px; color: var(--text-dim);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+    background: var(--green); box-shadow: 0 0 6px var(--green);
+  }
+  .status-dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+  .latest-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+    margin-bottom: 20px;
+  }
+  .latest-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 24px; text-align: center;
+  }
+  .latest-card .label {
+    font-size: 13px; color: var(--text-dim); margin-bottom: 6px;
+  }
+  .latest-card .value {
+    font-size: 32px; font-weight: 700;
+  }
+  .latest-card .value.temp { color: var(--amber); }
+  .latest-card .value.humidity { color: var(--cyan); }
+  .latest-card .unit {
+    font-size: 16px; color: var(--text-dim); font-weight: 400;
+  }
+  .latest-card .updated {
+    font-size: 12px; color: var(--text-dim); margin-top: 4px;
+  }
+
+  .controls {
+    display: flex; gap: 10px; align-items: center; margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .controls button {
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 16px; border-radius: 8px;
+    cursor: pointer; font-size: 13px; transition: all .2s;
+  }
+  .controls button:hover { border-color: var(--cyan); }
+  .controls button.active {
+    background: var(--cyan); color: #000; border-color: var(--cyan);
+    font-weight: 600;
+  }
+  .controls select {
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 12px; border-radius: 8px;
+    font-size: 13px; cursor: pointer;
+  }
+
+  .chart-row {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px; margin-bottom: 14px;
+  }
+  .chart-row h3 {
+    font-size: 14px; color: var(--text-dim); margin-bottom: 10px;
+    font-weight: 500;
+  }
+  .chart-row canvas { max-height: 220px; }
+
+  .footer {
+    text-align: center; font-size: 12px; color: var(--text-dim);
+    margin-top: 24px; padding: 10px;
+  }
+
+  @media (max-width: 600px) {
+    .latest-grid { grid-template-columns: 1fr; }
+    body { padding: 12px; }
+    .latest-card .value { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🌡 室内温湿度监控</h1>
+  <div class="status">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText">加载中...</span>
+    <span style="margin-left:12px" id="dataCount"></span>
+  </div>
+</div>
+
+<div class="latest-grid" id="latestGrid">
+  <div class="latest-card">
+    <div class="label">🌡 温度</div>
+    <div class="value temp" id="latestTemp">-- <span class="unit">°C</span></div>
+    <div class="updated" id="tempTime"></div>
+  </div>
+  <div class="latest-card">
+    <div class="label">💧 湿度</div>
+    <div class="value humidity" id="latestHum">-- <span class="unit">%</span></div>
+    <div class="updated" id="humTime"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <select id="deviceSelect" onchange="switchDevice()">
+    <option value="%">所有设备</option>
+  </select>
+  <button onclick="setHours(6)" data-h="6">6 小时</button>
+  <button onclick="setHours(24)" data-h="24" class="active">24 小时</button>
+  <button onclick="setHours(72)" data-h="72">3 天</button>
+  <button onclick="setHours(168)" data-h="168">7 天</button>
+  <button onclick="setHours(720)" data-h="720">30 天</button>
+</div>
+
+<div class="chart-row">
+  <h3>🌡 温度曲线</h3>
+  <canvas id="tempChart"></canvas>
+</div>
+<div class="chart-row">
+  <h3>💧 湿度曲线</h3>
+  <canvas id="humChart"></canvas>
+</div>
+
+<div class="footer">
+  ESP32 + DHT22 · 数据每 60 秒上报 · 自动刷新
+</div>
+
+<script>
+let tempChart, humChart;
+let currentHours = 24;
+let currentDevice = '%';
+let allData = [];
+const colors = {
+  temp: { bg: 'rgba(255,158,0,0.1)', border: '#ff9e00', point: '#ff9e00' },
+  hum:  { bg: 'rgba(0,240,255,0.1)', border: '#00f0ff', point: '#00f0ff' },
+};
+
+function formatTime(isoStr) {
+  const t = new Date(isoStr);
+  const loc = new Date(t.getTime() - t.getTimezoneOffset() * 60000);
+  return loc.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function setHours(h) {
+  currentHours = h;
+  document.querySelectorAll('.controls button').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.h) === h);
+  });
+  fetchData();
+}
+
+function switchDevice() {
+  currentDevice = document.getElementById('deviceSelect').value;
+  fetchData();
+}
+
+function updateLatest(data) {
+  if (data.length === 0) return;
+  const last = data[data.length - 1];
+  document.getElementById('latestTemp').innerHTML = last.temp.toFixed(1) + ' <span class="unit">°C</span>';
+  document.getElementById('latestHum').innerHTML = last.humidity.toFixed(1) + ' <span class="unit">%</span>';
+  document.getElementById('tempTime').textContent = formatTime(last.time);
+  document.getElementById('humTime').textContent = formatTime(last.time);
+}
+
+function buildChart(ctx, label, data, color, unit) {
+  const labels = data.map(d => formatTime(d.time));
+  const values = data.map(d => {
+    if (unit === '%') return d.humidity;
+    return d.temp;
+  });
+
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label, data: values,
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        pointRadius: 0,
+        pointHitRadius: 6,
+        borderWidth: 2,
+        tension: 0.3,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1c2333',
+          titleColor: '#c9d1d9',
+          bodyColor: '#c9d1d9',
+          borderColor: '#30363d',
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            label: ctx => {
+              const val = ctx.parsed.y;
+              const u = unit === '%' ? '%' : '°C';
+              return `${val.toFixed(1)} ${u}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#8b949e', maxTicksLimit: 8, font: { size: 10 } },
+          grid: { color: '#30363d' }
+        },
+        y: {
+          ticks: { color: '#8b949e', font: { size: 10 } },
+          grid: { color: '#30363d' }
+        }
+      }
+    }
+  });
+}
+
+function renderCharts(data) {
+  if (tempChart) tempChart.destroy();
+  if (humChart) humChart.destroy();
+
+  tempChart = buildChart(
+    document.getElementById('tempChart'), '温度', data, colors.temp, '°C'
+  );
+  humChart = buildChart(
+    document.getElementById('humChart'), '湿度', data, colors.hum, '%'
+  );
+}
+
+async function loadDevices() {
+  const r = await fetch('/api/devices');
+  const j = await r.json();
+  const sel = document.getElementById('deviceSelect');
+  j.devices.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d; opt.textContent = d;
+    sel.appendChild(opt);
+  });
+}
+
+async function fetchData() {
+  const url = `/api/data?device=${encodeURIComponent(currentDevice)}&hours=${currentHours}`;
+  try {
+    const r = await fetch(url);
+    const j = await r.json();
+    allData = j.data || [];
+    document.getElementById('statusDot').className = 'status-dot';
+    document.getElementById('statusText').textContent = '在线';
+    document.getElementById('dataCount').textContent = `${allData.length} 条数据`;
+    updateLatest(allData);
+    renderCharts(allData);
+  } catch {
+    document.getElementById('statusDot').className = 'status-dot offline';
+    document.getElementById('statusText').textContent = '离线';
+  }
+}
+
+loadDevices();
+fetchData();
+setInterval(fetchData, 30000);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,12 @@
+services:
+  temp-monitor:
+    build: .
+    container_name: temp-monitor
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      # 持久化数据库，重启不丢数据
+      - ./data:/app/data
+    environment:
+      - TZ=America/Toronto
