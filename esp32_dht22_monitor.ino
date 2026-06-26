@@ -16,10 +16,10 @@
 
 // ====== WiFi 配置 ======
 const char* WIFI_SSID     = "DECOX20";
-const char* WIFI_PASSWORD = "1155668800";
+const char* WIFI_PASSWORD = "change_wifi_password";
 
 // ====== 服务器配置 ======
-const char* SERVER_HOST   = "192.168.1.30";   // 跑 server.py 的 Unraid IP
+const char* SERVER_HOST   = "192.168.1.1";   // 跑 server.py 的 Unraid IP
 const int   SERVER_PORT   = 5000;
 const char* DEVICE_NAME   = "客厅";            // 改：传感器位置
 const int   INTERVAL_SEC  = 60;                // 上报间隔（秒）
