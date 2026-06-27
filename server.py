@@ -153,7 +153,7 @@ def get_data():
         elif hours <= 168:
             c.execute(
                 """SELECT AVG(temp), AVG(humidity), AVG(pressure),
-                          datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 900 * 900, 'unixepoch')
+                          datetime(CAST(strftime('%s', timestamp) AS INTEGER) / 900 * 900, 'unixepoch')
                    FROM readings
                    WHERE device LIKE ? AND timestamp >= ?
                    GROUP BY 4 ORDER BY 4 ASC""",
@@ -163,7 +163,7 @@ def get_data():
         elif hours <= 720:
             c.execute(
                 """SELECT AVG(temp), AVG(humidity), AVG(pressure),
-                          datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 3600 * 3600, 'unixepoch')
+                          datetime(CAST(strftime('%s', timestamp) AS INTEGER) / 3600 * 3600, 'unixepoch')
                    FROM readings
                    WHERE device LIKE ? AND timestamp >= ?
                    GROUP BY 4 ORDER BY 4 ASC""",
@@ -173,7 +173,7 @@ def get_data():
         else:
             c.execute(
                 """SELECT AVG(temp), AVG(humidity), AVG(pressure),
-                          datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 21600 * 21600, 'unixepoch')
+                          datetime(CAST(strftime('%s', timestamp) AS INTEGER) / 21600 * 21600, 'unixepoch')
                    FROM readings
                    WHERE device LIKE ? AND timestamp >= ?
                    GROUP BY 4 ORDER BY 4 ASC""",
