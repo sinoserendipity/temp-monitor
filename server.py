@@ -116,8 +116,10 @@ def get_data():
             params.append(to_date)
 
         if span_hours <= 48:
-            query = f"SELECT temp, humidity, pressure, timestamp FROM readings WHERE {conditions} ORDER BY timestamp ASC"
-            mode = "raw"
+            query = f"""SELECT AVG(temp), AVG(humidity), AVG(pressure),
+                        datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 120 * 120, 'unixepoch')
+                        FROM readings WHERE {conditions} GROUP BY 4 ORDER BY 4 ASC"""
+            mode = "avg_2m"
         elif span_hours <= 168:
             query = f"""SELECT AVG(temp), AVG(humidity), AVG(pressure),
                         datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 900 * 900, 'unixepoch')
@@ -143,13 +145,14 @@ def get_data():
 
         if hours <= 48:
             c.execute(
-                """SELECT temp, humidity, pressure, timestamp
+                """SELECT AVG(temp), AVG(humidity), AVG(pressure),
+                          datetime(CAST(strftime('%s', timestamp) AS INTEGER) / 120 * 120, 'unixepoch')
                    FROM readings
                    WHERE device LIKE ? AND timestamp >= ?
-                   ORDER BY timestamp ASC""",
+                   GROUP BY 4 ORDER BY 4 ASC""",
                 (device, since),
             )
-            mode = "raw"
+            mode = "avg_2m"
         elif hours <= 168:
             c.execute(
                 """SELECT AVG(temp), AVG(humidity), AVG(pressure),
