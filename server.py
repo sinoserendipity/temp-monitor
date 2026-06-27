@@ -133,11 +133,9 @@ def index():
     return send_file(os.path.join(os.path.dirname(__file__), "dashboard.html"))
 
 
-if __name__ == "__main__":
-    print(f"🌡  温度监控服务已启动")
-    print(f"📂 数据库: {DB_PATH}")
-    print(f"🌐 访问地址: http://0.0.0.0:5000")
-    print(f"📡 API: POST /api/data  ← ESP32 上报到这里")
-    print(f"📊 仪表盘: GET  /       ← 浏览器打开看曲线")
-    print()
-    app.run(host="0.0.0.0", port=5000, debug=False)
+print(f"🌡  温度监控服务已启动")
+print(f"📂 数据库: {DB_PATH}")
+print(f"🌐 访问地址: http://0.0.0.0:5000")
+print(f"📡 API: POST /api/data  ← ESP32 上报到这里")
+print(f"📊 仪表盘: GET  /       ← 浏览器打开看曲线")
+print()
