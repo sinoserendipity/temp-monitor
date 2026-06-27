@@ -108,4 +108,4 @@ docker pull ghcr.io/<用户名>/temp-monitor:latest
 
 ## 五、数据持久化
 
-Docker 部署时数据保存在 `./data/` 目录下的 `data.db` 中，重启不丢数据。
+Docker 部署时数据保存在 `/app/data/` 目录下的 `data.db` 中，重启不丢数据。
