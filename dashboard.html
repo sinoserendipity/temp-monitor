@@ -82,6 +82,14 @@
     background: var(--cyan); color: #000; border-color: var(--cyan);
     font-weight: 600;
   }
+  .controls button#monthBtn.active {
+    background: var(--amber); color: #000; border-color: var(--amber);
+    font-weight: 600;
+  }
+  .controls .dimmed {
+    opacity: 0.35;
+    pointer-events: none;
+  }
   .controls select {
     background: var(--card); border: 1px solid var(--border);
     color: var(--text); padding: 6px 12px; border-radius: 8px;
@@ -143,6 +151,15 @@
   <button onclick="setHours(72)" data-h="72">3 天</button>
   <button onclick="setHours(168)" data-h="168">7 天</button>
   <button onclick="setHours(720)" data-h="720">30 天</button>
+  <span style="color:var(--text-dim);margin:0 6px;font-size:13px">|</span>
+  <select id="yearSelect" style="background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;font-size:13px"></select>
+  <select id="monthSelect" style="background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;font-size:13px">
+    <option value="1">1 月</option><option value="2">2 月</option><option value="3">3 月</option>
+    <option value="4">4 月</option><option value="5">5 月</option><option value="6">6 月</option>
+    <option value="7">7 月</option><option value="8">8 月</option><option value="9">9 月</option>
+    <option value="10">10 月</option><option value="11">11 月</option><option value="12">12 月</option>
+  </select>
+  <button onclick="loadMonth()" id="monthBtn" style="background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px">📅 查看</button>
 </div>
 
 <div class="chart-row">
@@ -191,15 +208,81 @@ function tempColorRgba(temp, alpha) {
 
 function formatTime(isoStr) {
   const t = new Date(isoStr);
+  // 月视图用更紧凑的格式
+  if (currentMode === 'month') {
+    return t.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit' });
+  }
   return t.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+let currentMode = 'relative'; // 'relative' | 'month'
+
 function setHours(h) {
+  currentMode = 'relative';
   currentHours = h;
   document.querySelectorAll('.controls button').forEach(b => {
     b.classList.toggle('active', parseInt(b.dataset.h) === h);
   });
+  document.getElementById('monthBtn').classList.remove('active');
+  // 切换到相对时间：年份月份下拉变虚，但 📅 按钮保持可点
+  document.getElementById('yearSelect').classList.add('dimmed');
+  document.getElementById('monthSelect').classList.add('dimmed');
+  // 时间按钮恢复
+  document.querySelectorAll('.controls button[data-h]').forEach(b => b.classList.remove('dimmed'));
   fetchData();
+}
+
+function pad2(n) { return n.toString().padStart(2, '0'); }
+
+function getMonthRange(year, month) {
+  const from = `${year}-${pad2(month)}-01T00:00:00`;
+  const to = month === 12 ? `${year+1}-01-01T00:00:00` : `${year}-${pad2(month+1)}-01T00:00:00`;
+  return { from, to };
+}
+
+async function loadMonth() {
+  const year = parseInt(document.getElementById('yearSelect').value);
+  const month = parseInt(document.getElementById('monthSelect').value);
+  const { from, to } = getMonthRange(year, month);
+
+  currentMode = 'month';
+  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+  document.getElementById('monthBtn').classList.add('active');
+  // 切换到月份：年份月份下拉恢复，时间按钮保持可点
+  document.getElementById('yearSelect').classList.remove('dimmed');
+  document.getElementById('monthSelect').classList.remove('dimmed');
+
+  const url = `/api/data?device=${encodeURIComponent(currentDevice)}&from=${from}&to=${to}`;
+  try {
+    const r = await fetch(url);
+    const j = await r.json();
+    allData = j.data || [];
+    document.getElementById('statusDot').className = 'status-dot';
+    document.getElementById('statusText').textContent = '在线';
+    const label = `${year} 年 ${month} 月`;
+    document.getElementById('dataCount').textContent = `${label} · ${allData.length} 条数据`;
+    updateLatest(allData);
+    renderCharts(allData);
+  } catch {
+    document.getElementById('statusDot').className = 'status-dot offline';
+    document.getElementById('statusText').textContent = '离线';
+  }
+}
+
+function initMonthPicker() {
+  const now = new Date();
+  const yearSel = document.getElementById('yearSelect');
+  // 显示过去 3 年
+  for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) {
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = `${y} 年`;
+    yearSel.appendChild(opt);
+  }
+  yearSel.value = now.getFullYear();
+  document.getElementById('monthSelect').value = now.getMonth() + 1;
+  // 默认相对时间模式，年份月份下拉变虚
+  document.getElementById('yearSelect').classList.add('dimmed');
+  document.getElementById('monthSelect').classList.add('dimmed');
 }
 
 function switchDevice() {
@@ -330,6 +413,7 @@ async function fetchData() {
   }
 }
 
+initMonthPicker();
 loadDevices();
 fetchData();
 setInterval(fetchData, 30000);
