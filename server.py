@@ -18,7 +18,7 @@ from datetime import datetime, timezone, timedelta
 from flask import Flask, request, jsonify, send_file
 
 app = Flask(__name__)
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "data.db")
+DB_PATH = "/app/data/data.db"
 
 
 def init_db():
@@ -42,6 +42,9 @@ def init_db():
     """)
     conn.commit()
     conn.close()
+
+# 启动时初始化数据库（gunicorn 和 python3 server.py 都会执行）
+init_db()
 
 
 # ---------- API ----------
@@ -129,7 +132,6 @@ def index():
 
 
 if __name__ == "__main__":
-    init_db()
     print(f"🌡  温度监控服务已启动")
     print(f"📂 数据库: {DB_PATH}")
     print(f"🌐 访问地址: http://0.0.0.0:5000")

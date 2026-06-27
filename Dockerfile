@@ -10,7 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 复制代码
 COPY server.py dashboard.html .
 
+# 数据库由 docker-compose 挂载管理，不在镜像里声明 VOLUME
 EXPOSE 5000
 
-# 确保 data.db 在数据卷里
-CMD ["python3", "server.py"]
+# 使用 gunicorn 生产服务器（4 workers）
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "server:app"]
