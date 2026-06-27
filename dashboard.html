@@ -59,7 +59,7 @@
   .latest-card .value {
     font-size: 32px; font-weight: 700;
   }
-  .latest-card .value.temp { color: var(--amber); }
+  .latest-card .value.temp { transition: color .5s ease; }
   .latest-card .value.humidity { color: var(--cyan); }
   .latest-card .unit {
     font-size: 16px; color: var(--text-dim); font-weight: 400;
@@ -164,9 +164,23 @@ let currentHours = 24;
 let currentDevice = '%';
 let allData = [];
 const colors = {
-  temp: { bg: 'rgba(255,158,0,0.1)', border: '#ff9e00', point: '#ff9e00' },
   hum:  { bg: 'rgba(0,240,255,0.1)', border: '#00f0ff', point: '#00f0ff' },
 };
+
+// 温度 → 渐变色（低温蓝 → 高温红）
+function tempColor(temp) {
+  const t = Math.max(-10, Math.min(45, temp));
+  // HSL: 低温 220°(蓝) → 高温 0°(红)
+  const h = 220 - (t + 10) / 55 * 220;
+  const l = t > 30 ? 48 : 55;
+  return `hsl(${Math.round(h)}, 100%, ${l}%)`;
+}
+
+function tempColorRgba(temp, alpha) {
+  const t = Math.max(-10, Math.min(45, temp));
+  const h = 220 - (t + 10) / 55 * 220;
+  return `hsla(${Math.round(h)}, 100%, 50%, ${alpha})`;
+}
 
 function formatTime(isoStr) {
   const t = new Date(isoStr);
@@ -190,36 +204,52 @@ function switchDevice() {
 function updateLatest(data) {
   if (data.length === 0) return;
   const last = data[data.length - 1];
-  document.getElementById('latestTemp').innerHTML = last.temp.toFixed(1) + ' <span class="unit">°C</span>';
+  const tempEl = document.getElementById('latestTemp');
+  tempEl.innerHTML = last.temp.toFixed(1) + ' <span class="unit">°C</span>';
+  tempEl.style.color = tempColor(last.temp);
   document.getElementById('latestHum').innerHTML = last.humidity.toFixed(1) + ' <span class="unit">%</span>';
   document.getElementById('tempTime').textContent = formatTime(last.time);
   document.getElementById('humTime').textContent = formatTime(last.time);
 }
 
-function buildChart(ctx, label, data, color, unit) {
+function buildChart(ctx, label, data, color, unit, isTemp) {
   const labels = data.map(d => formatTime(d.time));
   const values = data.map(d => {
     if (unit === '%') return d.humidity;
     return d.temp;
   });
 
+  const dataset = isTemp ? {
+    label, data: values,
+    borderColor: '#888',
+    backgroundColor: 'transparent',
+    pointRadius: 0,
+    pointHitRadius: 6,
+    borderWidth: 3,
+    tension: 0.3,
+    fill: true,
+    segment: {
+      borderColor: ctx => tempColor(ctx.p1.parsed.y),
+      backgroundColor: ctx => tempColorRgba(ctx.p1.parsed.y, 0.12),
+    },
+  } : {
+    label, data: values,
+    borderColor: color.border,
+    backgroundColor: color.bg,
+    pointRadius: 0,
+    pointHitRadius: 6,
+    borderWidth: 2,
+    tension: 0.3,
+    fill: true,
+  };
+
   return new Chart(ctx, {
     type: 'line',
     data: {
       labels,
-      datasets: [{
-        label, data: values,
-        borderColor: color.border,
-        backgroundColor: color.bg,
-        pointRadius: 0,
-        pointHitRadius: 6,
-        borderWidth: 2,
-        tension: 0.3,
-        fill: true,
-      }]
+      datasets: [dataset],
     },
     options: {
-      responsive: true,
       maintainAspectRatio: false,
       interaction: { intersect: false, mode: 'index' },
       plugins: {
@@ -259,10 +289,10 @@ function renderCharts(data) {
   if (humChart) humChart.destroy();
 
   tempChart = buildChart(
-    document.getElementById('tempChart'), '温度', data, colors.temp, '°C'
+    document.getElementById('tempChart'), '温度', data, null, '°C', true
   );
   humChart = buildChart(
-    document.getElementById('humChart'), '湿度', data, colors.hum, '%'
+    document.getElementById('humChart'), '湿度', data, colors.hum, '%', false
   );
 }
 
