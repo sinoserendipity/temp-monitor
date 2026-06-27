@@ -24,6 +24,8 @@ DB_PATH = "/app/data/data.db"
 def init_db():
     """初始化数据库表"""
     conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA busy_timeout=5000;")
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS readings (
