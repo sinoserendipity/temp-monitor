@@ -1,6 +1,7 @@
 services:
   temp-monitor:
-    build: .
+    image: ghcr.io/sinoserendipity/temp-monitor:latest
+    pull_policy: always
     container_name: temp-monitor
     restart: unless-stopped
     ports:
