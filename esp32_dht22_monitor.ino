@@ -11,16 +11,17 @@
  */
 
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <DHT.h>
 #include <ArduinoJson.h>
 
 // ====== WiFi 配置 ======
-const char* WIFI_SSID     = "DECOX20";
-const char* WIFI_PASSWORD = "change_wifi_password";
+const char* WIFI_SSID     = "wifi_SSID";
+const char* WIFI_PASSWORD = "wifi_password";
 
 // ====== 服务器配置 ======
-const char* SERVER_HOST   = "192.168.1.1";   // 跑 server.py 的 Unraid IP
-const int   SERVER_PORT   = 5000;
+const char* SERVER_HOST   = "www.example.com";
+const int   SERVER_PORT   = 443;
 const char* DEVICE_NAME   = "客厅";            // 改：传感器位置
 const int   INTERVAL_SEC  = 60;                // 上报间隔（秒）
 
@@ -70,15 +71,16 @@ void sendData(float temp, float humidity) {
   Serial.print("📤 发送: ");
   Serial.println(json);
 
-  // HTTP POST
-  WiFiClient client;
+  // HTTPS POST（跳过证书验证，内网用）
+  WiFiClientSecure client;
+  client.setInsecure();
   if (!client.connect(SERVER_HOST, SERVER_PORT)) {
     Serial.println("⚠ 连服务器失败");
     return;
   }
 
   client.println("POST /api/data HTTP/1.1");
-  client.println("Host: " + String(SERVER_HOST) + ":" + String(SERVER_PORT));
+  client.println("Host: " + String(SERVER_HOST));
   client.println("Content-Type: application/json");
   client.print("Content-Length: ");
   client.println(json.length());
