@@ -43,6 +43,13 @@ def init_db():
         ON readings(device, timestamp)
     """)
     conn.commit()
+
+    # 启动时清理超过 730 天的老数据
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=730)).isoformat()
+    deleted = conn.execute("DELETE FROM readings WHERE timestamp < ?", (cutoff,)).rowcount
+    if deleted:
+        print(f"[cleanup] 删除了 {deleted} 条超过 730 天的记录")
+
     conn.close()
 
 # 启动时初始化数据库（gunicorn 和 python3 server.py 都会执行）
@@ -85,28 +92,104 @@ def receive_data():
 
 @app.route("/api/data", methods=["GET"])
 def get_data():
-    """获取历史数据，前端画图用"""
+    """获取历史数据，前端画图用（支持按小时范围或按日历日期）"""
     device = request.args.get("device", "%")
-    hours = request.args.get("hours", 24, type=int)
-
-    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    hours = request.args.get("hours", type=int)
+    from_date = request.args.get("from")
+    to_date = request.args.get("to")
 
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute(
-        """SELECT temp, humidity, pressure, timestamp 
-           FROM readings 
-           WHERE device LIKE ? AND timestamp >= ? 
-           ORDER BY timestamp ASC""",
-        (device, since),
-    )
+
+    if from_date:
+        # ---------- 按日历日期查询 ----------
+        since = from_date
+        # 计算实际小时差决定降采样级别
+        from_dt = datetime.fromisoformat(from_date)
+        to_dt = datetime.fromisoformat(to_date) if to_date else (from_dt + timedelta(days=31))
+        span_hours = (to_dt - from_dt).total_seconds() / 3600
+
+        conditions = "device LIKE ? AND timestamp >= ?"
+        params = [device, since]
+        if to_date:
+            conditions += " AND timestamp < ?"
+            params.append(to_date)
+
+        if span_hours <= 48:
+            query = f"SELECT temp, humidity, pressure, timestamp FROM readings WHERE {conditions} ORDER BY timestamp ASC"
+            mode = "raw"
+        elif span_hours <= 168:
+            query = f"""SELECT AVG(temp), AVG(humidity), AVG(pressure),
+                        datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 900 * 900, 'unixepoch')
+                        FROM readings WHERE {conditions} GROUP BY 4 ORDER BY 4 ASC"""
+            mode = "avg_15m"
+        elif span_hours <= 720:
+            query = f"""SELECT AVG(temp), AVG(humidity), AVG(pressure),
+                        datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 3600 * 3600, 'unixepoch')
+                        FROM readings WHERE {conditions} GROUP BY 4 ORDER BY 4 ASC"""
+            mode = "avg_1h"
+        else:
+            query = f"""SELECT AVG(temp), AVG(humidity), AVG(pressure),
+                        datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 21600 * 21600, 'unixepoch')
+                        FROM readings WHERE {conditions} GROUP BY 4 ORDER BY 4 ASC"""
+            mode = "avg_6h"
+
+        c.execute(query, params)
+    else:
+        # ---------- 按小时范围查询（原有逻辑） ----------
+        if hours is None:
+            hours = 24
+        since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+
+        if hours <= 48:
+            c.execute(
+                """SELECT temp, humidity, pressure, timestamp
+                   FROM readings
+                   WHERE device LIKE ? AND timestamp >= ?
+                   ORDER BY timestamp ASC""",
+                (device, since),
+            )
+            mode = "raw"
+        elif hours <= 168:
+            c.execute(
+                """SELECT AVG(temp), AVG(humidity), AVG(pressure),
+                          datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 900 * 900, 'unixepoch')
+                   FROM readings
+                   WHERE device LIKE ? AND timestamp >= ?
+                   GROUP BY 4 ORDER BY 4 ASC""",
+                (device, since),
+            )
+            mode = "avg_15m"
+        elif hours <= 720:
+            c.execute(
+                """SELECT AVG(temp), AVG(humidity), AVG(pressure),
+                          datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 3600 * 3600, 'unixepoch')
+                   FROM readings
+                   WHERE device LIKE ? AND timestamp >= ?
+                   GROUP BY 4 ORDER BY 4 ASC""",
+                (device, since),
+            )
+            mode = "avg_1h"
+        else:
+            c.execute(
+                """SELECT AVG(temp), AVG(humidity), AVG(pressure),
+                          datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 21600 * 21600, 'unixepoch')
+                   FROM readings
+                   WHERE device LIKE ? AND timestamp >= ?
+                   GROUP BY 4 ORDER BY 4 ASC""",
+                (device, since),
+            )
+            mode = "avg_6h"
+
     rows = c.fetchall()
     conn.close()
 
     return jsonify({
         "device": device,
-        "since": since,
+        "since": since if not from_date else from_date,
+        "to": to_date or "",
         "count": len(rows),
+        "mode": mode,
         "data": [
             {"temp": r[0], "humidity": r[1], "pressure": r[2], "time": r[3]}
             for r in rows
