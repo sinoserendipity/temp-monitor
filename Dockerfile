@@ -10,9 +10,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 复制代码
 COPY server.py dashboard.html .
 
-# 数据卷挂载点（data.db 会存在这里）
-VOLUME /app/data
-
 EXPOSE 5000
 
 # 确保 data.db 在数据卷里
