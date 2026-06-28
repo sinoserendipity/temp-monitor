@@ -251,6 +251,45 @@ function tempColorRgba(temp, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+// 温度曲线渐变插件：用垂直线性渐变代替 segment 单色
+const tempGradientPlugin = {
+  id: 'tempGradient',
+  beforeDraw(chart) {
+    const idx = chart.config.data.datasets.findIndex(d => d.label === '温度');
+    if (idx === -1) return;
+    const ds = chart.config.data.datasets[idx];
+    const ctx = chart.ctx;
+    const chartArea = chart.chartArea;
+    const yScale = chart.scales.y;
+    if (!chartArea || !yScale) return;
+
+    const grad = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+    const min = yScale.min;
+    const max = yScale.max;
+    const range = max - min || 1;
+
+    // 把 tempStops 映射到渐变比例
+    for (const stop of tempStops) {
+      const p = (stop.t - min) / range;
+      if (p >= 0 && p <= 1) {
+        const c = '#' + [stop.r,stop.g,stop.b].map(v => v.toString(16).padStart(2,'0')).join('');
+        grad.addColorStop(p, c);
+      }
+    }
+    // 确保两端闭合
+    if (tempStops[0].t > min) {
+      const c = '#' + [tempStops[0].r,tempStops[0].g,tempStops[0].b].map(v => v.toString(16).padStart(2,'0')).join('');
+      grad.addColorStop(0, c);
+    }
+    if (tempStops[tempStops.length-1].t < max) {
+      const c = '#' + [tempStops[tempStops.length-1].r,tempStops[tempStops.length-1].g,tempStops[tempStops.length-1].b].map(v => v.toString(16).padStart(2,'0')).join('');
+      grad.addColorStop(1, c);
+    }
+
+    ds.borderColor = grad;
+  }
+};
+
 // 温湿指数 (THI) = 0.8 × T + (RH/100) × (T - 14.4) + 46.4
 function computeTHI(temp, humidity) {
   return 0.8 * temp + (humidity / 100) * (temp - 14.4) + 46.4;
@@ -385,11 +424,7 @@ function buildChart(ctx, label, data, color, unit, isTemp) {
     pointHitRadius: 6,
     borderWidth: 3,
     tension: 0.3,
-    fill: true,
-    segment: {
-      borderColor: ctx => tempColor(ctx.p1.parsed.y),
-      backgroundColor: ctx => tempColorRgba(ctx.p1.parsed.y, 0.12),
-    },
+    fill: false,
   } : {
     label, data: values,
     borderColor: color.border,
@@ -401,12 +436,14 @@ function buildChart(ctx, label, data, color, unit, isTemp) {
     fill: true,
   };
 
+  const plugins = isTemp ? [tempGradientPlugin] : [];
   return new Chart(ctx, {
     type: 'line',
     data: {
       labels,
       datasets: [dataset],
     },
+    plugins,
     options: {
       maintainAspectRatio: false,
       interaction: { intersect: false, mode: 'index' },
