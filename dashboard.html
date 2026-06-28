@@ -227,18 +227,20 @@ function tempColorRgba(temp, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-// 温湿指数 (THI) = T - 0.55 × (1 - RH/100) × (T - 14.5)
+// 温湿指数 (THI) = 0.8 × T + (RH/100) × (T - 14.4) + 46.4
 function computeTHI(temp, humidity) {
-  return temp - 0.55 * (1 - humidity / 100) * (temp - 14.5);
+  return 0.8 * temp + (humidity / 100) * (temp - 14.4) + 46.4;
 }
 
 function getComfortLevel(thi) {
-  if (thi < 15)  return { text: '❄️ 寒冷', cls: 'comfort-cold', color: '#66ccff' };
-  if (thi < 20)  return { text: '🍃 凉爽', cls: 'comfort-cool', color: '#5cd6b3' };
-  if (thi < 25)  return { text: '😊 舒适', cls: 'comfort-good', color: '#3fb950' };
-  if (thi < 28)  return { text: '🌤️ 微热', cls: 'comfort-warm', color: '#e6c85c' };
-  if (thi < 30)  return { text: '🔥 炎热', cls: 'comfort-hot', color: '#ff9e00' };
-  return { text: '🥵 酷热', cls: 'comfort-extreme', color: '#ff4444' };
+  if (thi < 40)  return { text: '❄️ 严寒', cls: 'comfort-cold', color: '#3366ff' };
+  if (thi < 50)  return { text: '❄️ 寒冷', cls: 'comfort-cold', color: '#66ccff' };
+  if (thi < 60)  return { text: '🍃 清凉', cls: 'comfort-cool', color: '#5cd6b3' };
+  if (thi < 68)  return { text: '😊 舒适区', cls: 'comfort-good', color: '#3fb950' };
+  if (thi < 72)  return { text: '⚠️ 轻度应激', cls: 'comfort-warm', color: '#e6c85c' };
+  if (thi < 80)  return { text: '🔶 中度应激', cls: 'comfort-hot', color: '#ff9e00' };
+  if (thi < 90)  return { text: '🔴 重度应激', cls: 'comfort-extreme', color: '#ff4444' };
+  return { text: '🚨 危险区', cls: 'comfort-extreme', color: '#cc0000' };
 }
 
 function formatTime(isoStr) {
