@@ -236,11 +236,11 @@ function getComfortLevel(thi) {
   if (thi < 40)  return { text: '❄️ 严寒', cls: 'comfort-cold', color: '#3366ff' };
   if (thi < 50)  return { text: '❄️ 寒冷', cls: 'comfort-cold', color: '#66ccff' };
   if (thi < 60)  return { text: '🍃 清凉', cls: 'comfort-cool', color: '#5cd6b3' };
-  if (thi < 68)  return { text: '😊 舒适区', cls: 'comfort-good', color: '#3fb950' };
-  if (thi < 72)  return { text: '⚠️ 轻度应激', cls: 'comfort-warm', color: '#e6c85c' };
-  if (thi < 80)  return { text: '🔶 中度应激', cls: 'comfort-hot', color: '#ff9e00' };
-  if (thi < 90)  return { text: '🔴 重度应激', cls: 'comfort-extreme', color: '#ff4444' };
-  return { text: '🚨 危险区', cls: 'comfort-extreme', color: '#cc0000' };
+  if (thi < 74)  return { text: '😊 舒适', cls: 'comfort-good', color: '#3fb950' };
+  if (thi < 78)  return { text: '🌤️ 微热', cls: 'comfort-warm', color: '#e6c85c' };
+  if (thi < 83)  return { text: '🔥 炎热', cls: 'comfort-hot', color: '#ff9e00' };
+  if (thi < 90)  return { text: '🔴 闷热', cls: 'comfort-extreme', color: '#ff4444' };
+  return { text: '🚨 酷热', cls: 'comfort-extreme', color: '#cc0000' };
 }
 
 function formatTime(isoStr) {
