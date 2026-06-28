@@ -323,15 +323,20 @@ function computeTHI(temp, humidity) {
   return 0.8 * temp + (humidity / 100) * (temp - 14.4) + 46.4;
 }
 
+// 分级标准：中国气象局 THI（温湿指数）舒适度等级 + 上限扩展
+// < 50：清凉/较冷　51-58：偏凉，大部分人舒适　59-70：最为舒适
+// 71-76：偏热，大部分人舒适　77-80：炎热，大部分人不舒适
+// 注：中国气象局标准本身只定义到 77-80 这一档，80 分以上未给出官方划分；
+// 81-84、>85 这两档是按用户要求，借用农业(蛋鸡热应激)应用与另一份研究
+// 文献标准的描述拼接补充的，不是气象局原版定义，特此说明来源混合。
 function getComfortLevel(thi) {
-  if (thi < 40)  return { text: '❄️ 严寒', cls: 'comfort-cold', color: '#3366ff' };
-  if (thi < 50)  return { text: '❄️ 寒冷', cls: 'comfort-cold', color: '#66ccff' };
-  if (thi < 60)  return { text: '🍃 清凉', cls: 'comfort-cool', color: '#5cd6b3' };
-  if (thi < 74)  return { text: '😊 舒适', cls: 'comfort-good', color: '#3fb950' };
-  if (thi < 78)  return { text: '🌤️ 微热', cls: 'comfort-warm', color: '#e6c85c' };
-  if (thi < 83)  return { text: '🔥 炎热', cls: 'comfort-hot', color: '#ff9e00' };
-  if (thi < 90)  return { text: '🔴 闷热', cls: 'comfort-extreme', color: '#ff4444' };
-  return { text: '🚨 酷热', cls: 'comfort-extreme', color: '#cc0000' };
+  if (thi < 51)  return { text: '❄️ 清凉/较冷', cls: 'comfort-cold', color: '#66ccff' };
+  if (thi < 59)  return { text: '🍃 偏凉，舒适', cls: 'comfort-cool', color: '#5cd6b3' };
+  if (thi < 71)  return { text: '😊 最为舒适', cls: 'comfort-good', color: '#3fb950' };
+  if (thi < 77)  return { text: '🌤️ 偏热，舒适', cls: 'comfort-warm', color: '#e6c85c' };
+  if (thi < 81)  return { text: '🔥 炎热，不舒适', cls: 'comfort-hot', color: '#ff9e00' };
+  if (thi < 85)  return { text: '🔴 严重不适闷热，很不舒适', cls: 'comfort-extreme', color: '#ff4444' };
+  return { text: '🚨 威胁生命极其闷热，极不舒适', cls: 'comfort-extreme', color: '#cc0000' };
 }
 
 function formatTime(isoStr) {
