@@ -206,17 +206,41 @@ const colors = {
   hum:  { bg: 'rgba(0,240,255,0.1)', border: '#00f0ff', point: '#00f0ff' },
 };
 
-// 温度 → 渐变色（低温蓝 → 高温红）
+// 温度 → 连续渐变（线性插值：深蓝 → 蓝 → 青 → 黄 → 橙 → 红）
+const tempStops = [
+  { t: -10, r: 0x00, g: 0x33, b: 0xcc },
+  { t:   0, r: 0x00, g: 0x66, b: 0xff },
+  { t:  10, r: 0x33, g: 0xaa, b: 0xff },
+  { t:  18, r: 0x66, g: 0xcc, b: 0xcc },
+  { t:  24, r: 0xcc, g: 0xcc, b: 0x55 },
+  { t:  30, r: 0xff, g: 0x99, b: 0x00 },
+  { t:  36, r: 0xff, g: 0x44, b: 0x22 },
+  { t:  45, r: 0xff, g: 0x11, b: 0x11 },
+];
+function lerpColor(a, b, t) {
+  return {
+    r: Math.round(a.r + (b.r - a.r) * t),
+    g: Math.round(a.g + (b.g - a.g) * t),
+    b: Math.round(a.b + (b.b - a.b) * t),
+  };
+}
 function tempColor(temp) {
-  // 分段色阶，室温显示暖色
-  if (temp <= 0)  return '#0066ff';   // 冰蓝
-  if (temp <= 8)  return '#4d94ff';   // 蓝
-  if (temp <= 14) return '#66ccff';   // 天蓝
-  if (temp <= 18) return '#5cd6b3';   // 青绿
-  if (temp <= 24) return '#e6c85c';   // 暖黄 ← 22°C 在这里
-  if (temp <= 30) return '#ff9e00';   // 橙色
-  if (temp <= 36) return '#ff6633';   // 橙红
-  return '#ff1a1a';                   // 红
+  if (temp <= tempStops[0].t) {
+    const c = tempStops[0];
+    return '#' + [c.r,c.g,c.b].map(v => v.toString(16).padStart(2,'0')).join('');
+  }
+  if (temp >= tempStops[tempStops.length-1].t) {
+    const c = tempStops[tempStops.length-1];
+    return '#' + [c.r,c.g,c.b].map(v => v.toString(16).padStart(2,'0')).join('');
+  }
+  for (let i = 0; i < tempStops.length - 1; i++) {
+    if (temp >= tempStops[i].t && temp < tempStops[i+1].t) {
+      const t = (temp - tempStops[i].t) / (tempStops[i+1].t - tempStops[i].t);
+      const c = lerpColor(tempStops[i], tempStops[i+1], t);
+      return '#' + [c.r,c.g,c.b].map(v => v.toString(16).padStart(2,'0')).join('');
+    }
+  }
+  return '#ff0000';
 }
 
 function tempColorRgba(temp, alpha) {
