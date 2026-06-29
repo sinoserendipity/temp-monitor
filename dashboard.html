@@ -241,7 +241,7 @@
       <div class="stat-item"><div class="stat-name">最低</div><div class="stat-value" id="thiMin">--</div></div>
       <div class="stat-item"><div class="stat-name">最高</div><div class="stat-value" id="thiMax">--</div></div>
       <div class="stat-item"><div class="stat-name">平均</div><div class="stat-value" id="thiAvg">--</div></div>
-      <div class="stat-item"><div class="stat-name">峰值 THI</div><div class="stat-badge" id="thiComfort">--</div></div>
+      <div class="stat-item"><div class="stat-name">峰值 THI</div><div class="stat-value" id="thiPeak">--</div></div>
     </div>
   </div>
 </div>
@@ -633,11 +633,8 @@ function setStatValue(id, value, unit = '', tone = 'neutral') {
 
 function updateStats(data) {
   if (!data.length) {
-    ['tempMin','tempMax','tempAvg','tempRange','humMin','humMax','humAvg','humRange','thiMin','thiMax','thiAvg']
+    ['tempMin','tempMax','tempAvg','tempRange','humMin','humMax','humAvg','humRange','thiMin','thiMax','thiAvg','thiPeak']
       .forEach(id => setStatValue(id, null));
-    const thiComfort = document.getElementById('thiComfort');
-    thiComfort.textContent = '--';
-    thiComfort.className = 'stat-badge';
     return;
   }
 
@@ -662,11 +659,7 @@ function updateStats(data) {
   setStatValue('thiMin', min(thiValues), '', 'low');
   setStatValue('thiMax', max(thiValues), '', 'high');
   setStatValue('thiAvg', avg(thiValues));
-  const thiComfort = document.getElementById('thiComfort');
-  const peakThi = max(thiValues);
-  const peakComfort = getComfortLevel(peakThi);
-  thiComfort.textContent = `${peakThi.toFixed(1)} · ${peakComfort.text}`;
-  thiComfort.className = `stat-badge ${peakComfort.cls}`;
+  setStatValue('thiPeak', max(thiValues));
 }
 
 function buildChart(ctx, label, data, color, unit, isTemp) {
