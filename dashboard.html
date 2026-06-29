@@ -241,7 +241,7 @@
       <div class="stat-item"><div class="stat-name">最低</div><div class="stat-value" id="thiMin">--</div></div>
       <div class="stat-item"><div class="stat-name">最高</div><div class="stat-value" id="thiMax">--</div></div>
       <div class="stat-item"><div class="stat-name">平均</div><div class="stat-value" id="thiAvg">--</div></div>
-      <div class="stat-item"><div class="stat-name">最高体感</div><div class="stat-badge" id="thiComfort">--</div></div>
+      <div class="stat-item"><div class="stat-name">峰值 THI</div><div class="stat-badge" id="thiComfort">--</div></div>
     </div>
   </div>
 </div>
@@ -415,20 +415,18 @@ function computeTHI(temp, humidity) {
   return 0.8 * temp + (humidity / 100) * (temp - 14.4) + 46.4;
 }
 
-// 分级标准：中国气象局 THI（温湿指数）舒适度等级 + 上限扩展
-// < 50：清凉/较冷　51-58：偏凉，大部分人舒适　59-70：最为舒适
-// 71-76：偏热，大部分人舒适　77-80：炎热，大部分人不舒适
-// 注：中国气象局标准本身只定义到 77-80 这一档，80 分以上未给出官方划分；
-// 81-84、>85 这两档是按用户要求，借用农业(蛋鸡热应激)应用与另一份研究
-// 文献标准的描述拼接补充的，不是气象局原版定义，特此说明来源混合。
+// THI 体感分级：统一使用家用仪表盘语气，避免把舒适度和风险告警混在一起
+// <45：冷　45-50：清凉　51-58：偏凉　59-70：舒适
+// 71-76：偏暖　77-80：闷热　81-84：很闷热　85+：极闷热
 function getComfortLevel(thi) {
-  if (thi < 51)  return { text: '❄️ 清凉/较冷', cls: 'comfort-cold', color: '#66ccff' };
-  if (thi < 59)  return { text: '🍃 偏凉，舒适', cls: 'comfort-cool', color: '#5cd6b3' };
-  if (thi < 71)  return { text: '😊 最为舒适', cls: 'comfort-good', color: '#3fb950' };
-  if (thi < 77)  return { text: '🌤️ 偏热，舒适', cls: 'comfort-warm', color: '#e6c85c' };
-  if (thi < 81)  return { text: '🔥 炎热，不舒适', cls: 'comfort-hot', color: '#ff9e00' };
-  if (thi < 85)  return { text: '🔴 严重不适闷热，很不舒适', cls: 'comfort-extreme', color: '#ff4444' };
-  return { text: '🚨 威胁生命极其闷热，极不舒适', cls: 'comfort-extreme', color: '#cc0000' };
+  if (thi < 45)  return { text: '🥶 冷', cls: 'comfort-cold', color: '#4da3ff' };
+  if (thi < 51)  return { text: '❄️ 清凉', cls: 'comfort-cold', color: '#66ccff' };
+  if (thi < 59)  return { text: '🍃 偏凉', cls: 'comfort-cool', color: '#5cd6b3' };
+  if (thi < 71)  return { text: '😊 舒适', cls: 'comfort-good', color: '#3fb950' };
+  if (thi < 77)  return { text: '🌤️ 偏暖', cls: 'comfort-warm', color: '#e6c85c' };
+  if (thi < 81)  return { text: '🔥 闷热', cls: 'comfort-hot', color: '#ff9e00' };
+  if (thi < 85)  return { text: '🔴 很闷热', cls: 'comfort-extreme', color: '#ff7a7a' };
+  return { text: '🚨 极闷热', cls: 'comfort-extreme', color: '#ff4444' };
 }
 
 function formatTime(isoStr) {
@@ -665,8 +663,9 @@ function updateStats(data) {
   setStatValue('thiMax', max(thiValues), '', 'high');
   setStatValue('thiAvg', avg(thiValues));
   const thiComfort = document.getElementById('thiComfort');
-  const peakComfort = getComfortLevel(max(thiValues));
-  thiComfort.textContent = peakComfort.text;
+  const peakThi = max(thiValues);
+  const peakComfort = getComfortLevel(peakThi);
+  thiComfort.textContent = `${peakThi.toFixed(1)} · ${peakComfort.text}`;
   thiComfort.className = `stat-badge ${peakComfort.cls}`;
 }
 
