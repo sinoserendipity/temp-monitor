@@ -80,6 +80,51 @@
     font-size: 12px; color: var(--text-dim); margin-top: 4px;
   }
 
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stats-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 18px;
+  }
+  .stats-card h3 {
+    font-size: 13px; font-weight: 600; color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+  .stats-card.temp h3 { color: #d8b46a; }
+  .stats-card.humidity h3 { color: var(--cyan); }
+  .stats-card.thi h3 { color: var(--amber); }
+  .stats-list {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px;
+  }
+  .stat-item {
+    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 10px; padding: 10px 12px;
+  }
+  .stat-name {
+    font-size: 12px; color: var(--text-dim); margin-bottom: 6px;
+  }
+  .stat-value {
+    font-size: 20px; font-weight: 700; line-height: 1.1;
+  }
+  .stat-value small {
+    font-size: 12px; color: var(--text-dim); font-weight: 500; margin-left: 4px;
+  }
+  .stat-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: 44px; width: 100%; padding: 10px 12px;
+    border-radius: 12px; font-size: 14px; line-height: 1.35; font-weight: 700;
+    text-align: center; border: 1px solid transparent;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 24px rgba(0,0,0,0.18);
+  }
+  .stat-badge.comfort-cold { background: linear-gradient(135deg, rgba(26,58,92,0.95), rgba(17,38,60,0.95)); border-color: rgba(102,204,255,0.35); color: #8ad8ff; }
+  .stat-badge.comfort-cool { background: linear-gradient(135deg, rgba(26,58,58,0.95), rgba(17,45,45,0.95)); border-color: rgba(92,214,179,0.35); color: #7ee8c8; }
+  .stat-badge.comfort-good { background: linear-gradient(135deg, rgba(26,58,26,0.95), rgba(18,44,18,0.95)); border-color: rgba(63,185,80,0.35); color: #6fe07f; }
+  .stat-badge.comfort-warm { background: linear-gradient(135deg, rgba(58,58,26,0.95), rgba(44,44,18,0.95)); border-color: rgba(230,200,92,0.35); color: #f1d975; }
+  .stat-badge.comfort-hot { background: linear-gradient(135deg, rgba(58,26,26,0.95), rgba(44,18,18,0.95)); border-color: rgba(255,158,0,0.35); color: #ffb84d; }
+  .stat-badge.comfort-extreme { background: linear-gradient(135deg, rgba(74,16,16,0.98), rgba(54,10,10,0.98)); border-color: rgba(255,68,68,0.4); color: #ff7a7a; }
+
   .controls {
     display: flex; gap: 10px; align-items: center; margin-bottom: 16px;
     flex-wrap: wrap;
@@ -125,8 +170,11 @@
 
   @media (max-width: 600px) {
     .latest-grid { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .stats-list { grid-template-columns: 1fr 1fr; }
     body { padding: 12px; }
     .latest-card .value { font-size: 26px; }
+    .stat-value { font-size: 18px; }
   }
 </style>
 </head>
@@ -157,6 +205,36 @@
     <div class="value thi" id="latestThi">--</div>
     <div class="comfort-badge" id="comfortBadge">--</div>
     <div class="updated" id="thiTime"></div>
+  </div>
+</div>
+
+<div class="stats-grid" id="statsGrid">
+  <div class="stats-card temp">
+    <h3>🌡 温度摘要</h3>
+    <div class="stats-list">
+      <div class="stat-item"><div class="stat-name">最低</div><div class="stat-value" id="tempMin">--</div></div>
+      <div class="stat-item"><div class="stat-name">最高</div><div class="stat-value" id="tempMax">--</div></div>
+      <div class="stat-item"><div class="stat-name">平均</div><div class="stat-value" id="tempAvg">--</div></div>
+      <div class="stat-item"><div class="stat-name">波动</div><div class="stat-value" id="tempRange">--</div></div>
+    </div>
+  </div>
+  <div class="stats-card humidity">
+    <h3>💧 湿度摘要</h3>
+    <div class="stats-list">
+      <div class="stat-item"><div class="stat-name">最低</div><div class="stat-value" id="humMin">--</div></div>
+      <div class="stat-item"><div class="stat-name">最高</div><div class="stat-value" id="humMax">--</div></div>
+      <div class="stat-item"><div class="stat-name">平均</div><div class="stat-value" id="humAvg">--</div></div>
+      <div class="stat-item"><div class="stat-name">波动</div><div class="stat-value" id="humRange">--</div></div>
+    </div>
+  </div>
+  <div class="stats-card thi">
+    <h3>🌡 THI 摘要</h3>
+    <div class="stats-list">
+      <div class="stat-item"><div class="stat-name">最低</div><div class="stat-value" id="thiMin">--</div></div>
+      <div class="stat-item"><div class="stat-name">最高</div><div class="stat-value" id="thiMax">--</div></div>
+      <div class="stat-item"><div class="stat-name">平均</div><div class="stat-value" id="thiAvg">--</div></div>
+      <div class="stat-item"><div class="stat-name">当前体感</div><div class="stat-badge" id="thiComfort">--</div></div>
+    </div>
   </div>
 </div>
 
@@ -395,6 +473,7 @@ async function loadMonth() {
     const label = `${year} 年 ${month} 月`;
     document.getElementById('dataCount').textContent = `${label} · ${allData.length} 条数据`;
     updateLatest(allData);
+    updateStats(allData);
     renderCharts(allData);
   } catch {
     document.getElementById('statusDot').className = 'status-dot offline';
@@ -440,6 +519,53 @@ function updateLatest(data) {
   badge.textContent = comfort.text;
   badge.className = 'comfort-badge ' + comfort.cls;
   document.getElementById('thiTime').textContent = formatTime(last.time);
+}
+
+function setStatValue(id, value, unit = '') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    el.textContent = '--';
+    return;
+  }
+  el.innerHTML = `${value.toFixed(1)}${unit ? ` <small>${unit}</small>` : ''}`;
+}
+
+function updateStats(data) {
+  if (!data.length) {
+    ['tempMin','tempMax','tempAvg','tempRange','humMin','humMax','humAvg','humRange','thiMin','thiMax','thiAvg']
+      .forEach(id => setStatValue(id, null));
+    const thiComfort = document.getElementById('thiComfort');
+    thiComfort.textContent = '--';
+    thiComfort.className = 'stat-badge';
+    return;
+  }
+
+  const temps = data.map(item => item.temp);
+  const humidities = data.map(item => item.humidity);
+  const thiValues = data.map(item => computeTHI(item.temp, item.humidity));
+
+  const min = arr => Math.min(...arr);
+  const max = arr => Math.max(...arr);
+  const avg = arr => arr.reduce((sum, value) => sum + value, 0) / arr.length;
+
+  setStatValue('tempMin', min(temps), '°C');
+  setStatValue('tempMax', max(temps), '°C');
+  setStatValue('tempAvg', avg(temps), '°C');
+  setStatValue('tempRange', max(temps) - min(temps), '°C');
+
+  setStatValue('humMin', min(humidities), '%');
+  setStatValue('humMax', max(humidities), '%');
+  setStatValue('humAvg', avg(humidities), '%');
+  setStatValue('humRange', max(humidities) - min(humidities), '%');
+
+  setStatValue('thiMin', min(thiValues));
+  setStatValue('thiMax', max(thiValues));
+  setStatValue('thiAvg', avg(thiValues));
+  const thiComfort = document.getElementById('thiComfort');
+  const currentComfort = getComfortLevel(thiValues[thiValues.length - 1]);
+  thiComfort.textContent = currentComfort.text;
+  thiComfort.className = `stat-badge ${currentComfort.cls}`;
 }
 
 function buildChart(ctx, label, data, color, unit, isTemp) {
@@ -612,6 +738,7 @@ async function fetchData() {
     document.getElementById('statusText').textContent = '在线';
     document.getElementById('dataCount').textContent = `${allData.length} 条数据`;
     updateLatest(allData);
+    updateStats(allData);
     renderCharts(allData);
   } catch {
     document.getElementById('statusDot').className = 'status-dot offline';
