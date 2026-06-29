@@ -241,7 +241,7 @@
       <div class="stat-item"><div class="stat-name">最低</div><div class="stat-value" id="thiMin">--</div></div>
       <div class="stat-item"><div class="stat-name">最高</div><div class="stat-value" id="thiMax">--</div></div>
       <div class="stat-item"><div class="stat-name">平均</div><div class="stat-value" id="thiAvg">--</div></div>
-      <div class="stat-item"><div class="stat-name">当前体感</div><div class="stat-badge" id="thiComfort">--</div></div>
+      <div class="stat-item"><div class="stat-name">最高体感</div><div class="stat-badge" id="thiComfort">--</div></div>
     </div>
   </div>
 </div>
@@ -665,9 +665,9 @@ function updateStats(data) {
   setStatValue('thiMax', max(thiValues), '', 'high');
   setStatValue('thiAvg', avg(thiValues));
   const thiComfort = document.getElementById('thiComfort');
-  const currentComfort = getComfortLevel(thiValues[thiValues.length - 1]);
-  thiComfort.textContent = currentComfort.text;
-  thiComfort.className = `stat-badge ${currentComfort.cls}`;
+  const peakComfort = getComfortLevel(max(thiValues));
+  thiComfort.textContent = peakComfort.text;
+  thiComfort.className = `stat-badge ${peakComfort.cls}`;
 }
 
 function buildChart(ctx, label, data, color, unit, isTemp) {
