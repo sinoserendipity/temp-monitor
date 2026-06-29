@@ -601,22 +601,50 @@ function addGapBreaks(data) {
 }
 
 function updateLatest(data) {
-  if (data.length === 0) return;
-  const last = data[data.length - 1];
   const tempEl = document.getElementById('latestTemp');
+  const humEl = document.getElementById('latestHum');
+  const thiEl = document.getElementById('latestThi');
+  const badge = document.getElementById('comfortBadge');
+  const tempTimeEl = document.getElementById('tempTime');
+  const humTimeEl = document.getElementById('humTime');
+  const thiTimeEl = document.getElementById('thiTime');
+
+  const resetLatest = () => {
+    tempEl.innerHTML = '-- <span class="unit">°C</span>';
+    tempEl.style.color = '';
+    humEl.innerHTML = '-- <span class="unit">%</span>';
+    thiEl.textContent = '--';
+    badge.textContent = '--';
+    badge.className = 'comfort-badge';
+    tempTimeEl.textContent = '';
+    humTimeEl.textContent = '';
+    thiTimeEl.textContent = '';
+  };
+
+  if (!data.length) {
+    resetLatest();
+    return;
+  }
+
+  const validRows = data.filter(item => Number.isFinite(item?.temp) && Number.isFinite(item?.humidity) && item?.time);
+  if (!validRows.length) {
+    resetLatest();
+    return;
+  }
+
+  const last = validRows[validRows.length - 1];
   tempEl.innerHTML = last.temp.toFixed(1) + ' <span class="unit">°C</span>';
   tempEl.style.color = tempColor(last.temp);
-  document.getElementById('latestHum').innerHTML = last.humidity.toFixed(1) + ' <span class="unit">%</span>';
-  document.getElementById('tempTime').textContent = formatTime(last.time);
-  document.getElementById('humTime').textContent = formatTime(last.time);
+  humEl.innerHTML = last.humidity.toFixed(1) + ' <span class="unit">%</span>';
+  tempTimeEl.textContent = formatTime(last.time);
+  humTimeEl.textContent = formatTime(last.time);
 
   const thi = computeTHI(last.temp, last.humidity);
   const comfort = getComfortLevel(thi);
-  document.getElementById('latestThi').textContent = thi.toFixed(1);
-  const badge = document.getElementById('comfortBadge');
+  thiEl.textContent = thi.toFixed(1);
   badge.textContent = comfort.text;
   badge.className = 'comfort-badge ' + comfort.cls;
-  document.getElementById('thiTime').textContent = formatTime(last.time);
+  thiTimeEl.textContent = formatTime(last.time);
 }
 
 function setStatValue(id, value, unit = '', tone = 'neutral') {
@@ -632,15 +660,16 @@ function setStatValue(id, value, unit = '', tone = 'neutral') {
 }
 
 function updateStats(data) {
-  if (!data.length) {
+  const validRows = data.filter(item => Number.isFinite(item?.temp) && Number.isFinite(item?.humidity));
+  if (!validRows.length) {
     ['tempMin','tempMax','tempAvg','tempRange','humMin','humMax','humAvg','humRange','thiMin','thiMax','thiAvg','thiRange']
       .forEach(id => setStatValue(id, null));
     return;
   }
 
-  const temps = data.map(item => item.temp);
-  const humidities = data.map(item => item.humidity);
-  const thiValues = data.map(item => computeTHI(item.temp, item.humidity));
+  const temps = validRows.map(item => item.temp);
+  const humidities = validRows.map(item => item.humidity);
+  const thiValues = validRows.map(item => computeTHI(item.temp, item.humidity));
 
   const min = arr => Math.min(...arr);
   const max = arr => Math.max(...arr);
