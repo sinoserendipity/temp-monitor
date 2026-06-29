@@ -15,6 +15,9 @@
     --cyan: #00f0ff;
     --amber: #ff9e00;
     --green: #3fb950;
+    --yellow: #e6c85c;
+    --orange: #ff9e00;
+    --red: #ff4444;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -43,6 +46,8 @@
     width: 8px; height: 8px; border-radius: 50%; display: inline-block;
     background: var(--green); box-shadow: 0 0 6px var(--green);
   }
+  .status-dot.stale { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .status-dot.delayed { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
   .status-dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); }
 
   .latest-grid {
@@ -111,6 +116,9 @@
   .stat-value small {
     font-size: 12px; color: var(--text-dim); font-weight: 500; margin-left: 4px;
   }
+  .stat-value.is-low { color: #7ec8ff; }
+  .stat-value.is-high { color: #ff9f7f; }
+  .stat-value.is-neutral { color: var(--text); }
   .stat-badge {
     display: inline-flex; align-items: center; justify-content: center;
     min-height: 44px; width: 100%; padding: 10px 12px;
@@ -283,6 +291,9 @@ let allData = [];
 let lastDataTimestamp = null;
 const GAP_MULTIPLIER = 2.5;
 const MIN_GAP_MS = 3 * 60 * 1000;
+const STATUS_STALE_MS = 2 * 60 * 1000;
+const STATUS_DELAYED_MS = 10 * 60 * 1000;
+const STATUS_OFFLINE_MS = 30 * 60 * 1000;
 const colors = {
   hum:  { bg: 'rgba(0,240,255,0.1)', border: '#00f0ff', point: '#00f0ff' },
 };
@@ -448,17 +459,35 @@ function formatRelativeTime(isoStr) {
   return `${days} 天前更新`;
 }
 
+function getStatusLevel(isoStr) {
+  if (!isoStr) {
+    return { text: '暂无数据', dotClass: 'status-dot offline', level: 'offline' };
+  }
+
+  const diffMs = Date.now() - new Date(isoStr).getTime();
+  if (!Number.isFinite(diffMs) || diffMs < 0) {
+    return { text: '刚刚更新', dotClass: 'status-dot', level: 'live' };
+  }
+
+  if (diffMs >= STATUS_OFFLINE_MS) {
+    return { text: `离线 · ${formatRelativeTime(isoStr)}`, dotClass: 'status-dot offline', level: 'offline' };
+  }
+  if (diffMs >= STATUS_DELAYED_MS) {
+    return { text: `延迟较高 · ${formatRelativeTime(isoStr)}`, dotClass: 'status-dot delayed', level: 'delayed' };
+  }
+  if (diffMs >= STATUS_STALE_MS) {
+    return { text: `轻微延迟 · ${formatRelativeTime(isoStr)}`, dotClass: 'status-dot stale', level: 'stale' };
+  }
+
+  return { text: formatRelativeTime(isoStr), dotClass: 'status-dot', level: 'live' };
+}
+
 function updateStatusFromLastData() {
   const statusEl = document.getElementById('statusText');
   const dotEl = document.getElementById('statusDot');
-  if (!lastDataTimestamp) {
-    statusEl.textContent = '暂无数据';
-    dotEl.className = 'status-dot offline';
-    return;
-  }
-
-  statusEl.textContent = formatRelativeTime(lastDataTimestamp);
-  dotEl.className = 'status-dot';
+  const status = getStatusLevel(lastDataTimestamp);
+  statusEl.textContent = status.text;
+  dotEl.className = status.dotClass;
 }
 
 let currentMode = 'relative'; // 'relative' | 'month'
@@ -512,7 +541,7 @@ async function loadMonth() {
     renderCharts(allData);
   } catch {
     document.getElementById('statusDot').className = 'status-dot offline';
-    document.getElementById('statusText').textContent = '离线';
+    document.getElementById('statusText').textContent = '接口离线';
   }
 }
 
@@ -592,13 +621,15 @@ function updateLatest(data) {
   document.getElementById('thiTime').textContent = formatTime(last.time);
 }
 
-function setStatValue(id, value, unit = '') {
+function setStatValue(id, value, unit = '', tone = 'neutral') {
   const el = document.getElementById(id);
   if (!el) return;
+  el.className = 'stat-value';
   if (value === null || value === undefined || Number.isNaN(value)) {
     el.textContent = '--';
     return;
   }
+  el.classList.add(`is-${tone}`);
   el.innerHTML = `${value.toFixed(1)}${unit ? ` <small>${unit}</small>` : ''}`;
 }
 
@@ -620,18 +651,18 @@ function updateStats(data) {
   const max = arr => Math.max(...arr);
   const avg = arr => arr.reduce((sum, value) => sum + value, 0) / arr.length;
 
-  setStatValue('tempMin', min(temps), '°C');
-  setStatValue('tempMax', max(temps), '°C');
+  setStatValue('tempMin', min(temps), '°C', 'low');
+  setStatValue('tempMax', max(temps), '°C', 'high');
   setStatValue('tempAvg', avg(temps), '°C');
   setStatValue('tempRange', max(temps) - min(temps), '°C');
 
-  setStatValue('humMin', min(humidities), '%');
-  setStatValue('humMax', max(humidities), '%');
+  setStatValue('humMin', min(humidities), '%', 'low');
+  setStatValue('humMax', max(humidities), '%', 'high');
   setStatValue('humAvg', avg(humidities), '%');
   setStatValue('humRange', max(humidities) - min(humidities), '%');
 
-  setStatValue('thiMin', min(thiValues));
-  setStatValue('thiMax', max(thiValues));
+  setStatValue('thiMin', min(thiValues), '', 'low');
+  setStatValue('thiMax', max(thiValues), '', 'high');
   setStatValue('thiAvg', avg(thiValues));
   const thiComfort = document.getElementById('thiComfort');
   const currentComfort = getComfortLevel(thiValues[thiValues.length - 1]);
@@ -816,7 +847,7 @@ async function fetchData() {
     renderCharts(allData);
   } catch {
     document.getElementById('statusDot').className = 'status-dot offline';
-    document.getElementById('statusText').textContent = '离线';
+    document.getElementById('statusText').textContent = '接口离线';
   }
 }
 
