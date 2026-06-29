@@ -241,7 +241,7 @@
       <div class="stat-item"><div class="stat-name">最低</div><div class="stat-value" id="thiMin">--</div></div>
       <div class="stat-item"><div class="stat-name">最高</div><div class="stat-value" id="thiMax">--</div></div>
       <div class="stat-item"><div class="stat-name">平均</div><div class="stat-value" id="thiAvg">--</div></div>
-      <div class="stat-item"><div class="stat-name">峰值 THI</div><div class="stat-value" id="thiPeak">--</div></div>
+      <div class="stat-item"><div class="stat-name">波动</div><div class="stat-value" id="thiRange">--</div></div>
     </div>
   </div>
 </div>
@@ -633,7 +633,7 @@ function setStatValue(id, value, unit = '', tone = 'neutral') {
 
 function updateStats(data) {
   if (!data.length) {
-    ['tempMin','tempMax','tempAvg','tempRange','humMin','humMax','humAvg','humRange','thiMin','thiMax','thiAvg','thiPeak']
+    ['tempMin','tempMax','tempAvg','tempRange','humMin','humMax','humAvg','humRange','thiMin','thiMax','thiAvg','thiRange']
       .forEach(id => setStatValue(id, null));
     return;
   }
@@ -659,7 +659,7 @@ function updateStats(data) {
   setStatValue('thiMin', min(thiValues), '', 'low');
   setStatValue('thiMax', max(thiValues), '', 'high');
   setStatValue('thiAvg', avg(thiValues));
-  setStatValue('thiPeak', max(thiValues));
+  setStatValue('thiRange', max(thiValues) - min(thiValues));
 }
 
 function buildChart(ctx, label, data, color, unit, isTemp) {
