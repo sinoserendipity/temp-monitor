@@ -280,6 +280,9 @@ let tempChart, humChart, thiChart;
 let currentHours = 24;
 let currentDevice = '%';
 let allData = [];
+let lastDataTimestamp = null;
+const GAP_MULTIPLIER = 2.5;
+const MIN_GAP_MS = 3 * 60 * 1000;
 const colors = {
   hum:  { bg: 'rgba(0,240,255,0.1)', border: '#00f0ff', point: '#00f0ff' },
 };
@@ -426,6 +429,38 @@ function formatTime(isoStr) {
   return t.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+function formatRelativeTime(isoStr) {
+  if (!isoStr) return '暂无数据';
+  const diffMs = Date.now() - new Date(isoStr).getTime();
+  if (!Number.isFinite(diffMs) || diffMs < 0) return '刚刚更新';
+
+  const seconds = Math.floor(diffMs / 1000);
+  if (seconds < 10) return '刚刚更新';
+  if (seconds < 60) return `${seconds} 秒前更新`;
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} 分钟前更新`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} 小时前更新`;
+
+  const days = Math.floor(hours / 24);
+  return `${days} 天前更新`;
+}
+
+function updateStatusFromLastData() {
+  const statusEl = document.getElementById('statusText');
+  const dotEl = document.getElementById('statusDot');
+  if (!lastDataTimestamp) {
+    statusEl.textContent = '暂无数据';
+    dotEl.className = 'status-dot offline';
+    return;
+  }
+
+  statusEl.textContent = formatRelativeTime(lastDataTimestamp);
+  dotEl.className = 'status-dot';
+}
+
 let currentMode = 'relative'; // 'relative' | 'month'
 
 function setHours(h) {
@@ -468,8 +503,8 @@ async function loadMonth() {
     const r = await fetch(url);
     const j = await r.json();
     allData = j.data || [];
-    document.getElementById('statusDot').className = 'status-dot';
-    document.getElementById('statusText').textContent = '在线';
+    lastDataTimestamp = allData.length ? allData[allData.length - 1].time : null;
+    updateStatusFromLastData();
     const label = `${year} 年 ${month} 月`;
     document.getElementById('dataCount').textContent = `${label} · ${allData.length} 条数据`;
     updateLatest(allData);
@@ -500,6 +535,42 @@ function initMonthPicker() {
 function switchDevice() {
   currentDevice = document.getElementById('deviceSelect').value;
   fetchData();
+}
+
+function addGapBreaks(data) {
+  if (data.length < 2) return data.slice();
+
+  const timestamps = data
+    .map(item => new Date(item.time).getTime())
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+
+  let expectedInterval = 60 * 1000;
+  if (timestamps.length >= 2) {
+    const deltas = [];
+    for (let i = 1; i < timestamps.length; i++) {
+      const delta = timestamps[i] - timestamps[i - 1];
+      if (delta > 0) deltas.push(delta);
+    }
+    if (deltas.length) {
+      deltas.sort((a, b) => a - b);
+      expectedInterval = deltas[Math.floor(deltas.length / 2)];
+    }
+  }
+
+  const gapThreshold = Math.max(MIN_GAP_MS, expectedInterval * GAP_MULTIPLIER);
+  const result = [data[0]];
+
+  for (let i = 1; i < data.length; i++) {
+    const prevTs = new Date(data[i - 1].time).getTime();
+    const currTs = new Date(data[i].time).getTime();
+    if (Number.isFinite(prevTs) && Number.isFinite(currTs) && currTs - prevTs > gapThreshold) {
+      result.push({ time: data[i].time, temp: null, humidity: null, __gap: true });
+    }
+    result.push(data[i]);
+  }
+
+  return result;
 }
 
 function updateLatest(data) {
@@ -569,8 +640,10 @@ function updateStats(data) {
 }
 
 function buildChart(ctx, label, data, color, unit, isTemp) {
-  const labels = data.map(d => formatTime(d.time));
-  const values = data.map(d => {
+  const chartData = addGapBreaks(data);
+  const labels = chartData.map(d => formatTime(d.time));
+  const values = chartData.map(d => {
+    if (d.__gap) return null;
     if (unit === '%') return d.humidity;
     return d.temp;
   });
@@ -637,8 +710,9 @@ function buildChart(ctx, label, data, color, unit, isTemp) {
 }
 
 function buildTHIChart(ctx, data) {
-  const labels = data.map(d => formatTime(d.time));
-  const values = data.map(d => computeTHI(d.temp, d.humidity));
+  const chartData = addGapBreaks(data);
+  const labels = chartData.map(d => formatTime(d.time));
+  const values = chartData.map(d => d.__gap ? null : computeTHI(d.temp, d.humidity));
 
   return new Chart(ctx, {
     type: 'line',
@@ -734,8 +808,8 @@ async function fetchData() {
     const r = await fetch(url);
     const j = await r.json();
     allData = j.data || [];
-    document.getElementById('statusDot').className = 'status-dot';
-    document.getElementById('statusText').textContent = '在线';
+    lastDataTimestamp = allData.length ? allData[allData.length - 1].time : null;
+    updateStatusFromLastData();
     document.getElementById('dataCount').textContent = `${allData.length} 条数据`;
     updateLatest(allData);
     updateStats(allData);
@@ -750,6 +824,7 @@ initMonthPicker();
 loadDevices();
 fetchData();
 setInterval(fetchData, 30000);
+setInterval(updateStatusFromLastData, 1000);
 </script>
 
 </body>
