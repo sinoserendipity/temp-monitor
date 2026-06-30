@@ -1,8 +1,8 @@
 /*
- * ESP32 + DHT22 温湿度监控（深度睡眠版）
- * ======================================
- * 每 60 秒唤醒一次，读取数据并上报后进入深度睡眠。
- * 深度睡眠下电流约 10 µA，比持续运行的 ~80 mA 省电 99%。
+ * ESP32 + DHT22 温湿度监控（Light Sleep 版）
+ * ==========================================
+ * 每次读数上报后进入 Light Sleep 60 秒。
+ * WiFi 保持连接，微秒级唤醒，功耗约 ~0.8 mA（比持续运行省电 99%）。
  *
  * 接线（DHT22 -> ESP32）：
  *   VCC  -> 3.3V
@@ -16,10 +16,6 @@
 #include <ArduinoJson.h>
 #include <esp_sleep.h>
 
-// ====== 深度睡眠配置 ======
-#define uS_TO_S_FACTOR 1000000ULL
-const int TIME_TO_SLEEP = 60;   // 睡眠时间（秒）
-
 // ====== WiFi 配置 ======
 const char* WIFI_SSID     = "wifi_SSID";
 const char* WIFI_PASSWORD = "wifi_password";
@@ -28,12 +24,16 @@ const char* WIFI_PASSWORD = "wifi_password";
 const char* SERVER_HOST   = "192.168.1.100";   // 服务器地址
 const int   SERVER_PORT   = 5000;               // 服务器端口（HTTP）
 const char* DEVICE_NAME   = "客厅";              // 传感器位置
+const int   INTERVAL_SEC  = 60;                 // 上报间隔（秒）
 
 // ====== DHT22 配置 ======
 #define DHTPIN 4
 #define DHTTYPE DHT22
 
 DHT dht(DHTPIN, DHTTYPE);
+
+// 板载 LED（大部分 ESP32 Dev Board 是 GPIO2）
+#define LED_BUILTIN 2
 
 // ---------- WiFi 连接 ----------
 
@@ -47,10 +47,9 @@ void connectWiFi() {
     Serial.print(".");
     tries++;
     if (tries > 40) {
-      Serial.println("\n⚠ WiFi 失败，进入深度睡眠...");
-      delay(100);
-      esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
-      esp_deep_sleep_start();
+      Serial.println("\n⚠ WiFi 失败，重启中...");
+      delay(3000);
+      ESP.restart();
     }
   }
   Serial.println("\n✅ 已连接，IP: " + WiFi.localIP().toString());
@@ -108,11 +107,25 @@ void setup() {
   delay(1000);
 
   Serial.println("\n==============================");
-  Serial.println("🌡 ESP32 + DHT22 温湿度监控（深度睡眠）");
+  Serial.println("🌡 ESP32 + DHT22 温湿度监控（Light Sleep）");
   Serial.println("==============================");
+
+  // 关掉板载 LED
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
 
   dht.begin();
   connectWiFi();
+}
+
+void loop() {
+  unsigned long now = millis();
+  static unsigned long lastSend = 0;
+
+  if (now - lastSend < INTERVAL_SEC * 1000UL) {
+    return;
+  }
+  lastSend = now;
 
   float temp     = dht.readTemperature();
   float humidity = dht.readHumidity();
@@ -129,14 +142,8 @@ void setup() {
     sendData(temp, humidity);
   }
 
-  Serial.print("\n💤 进入深度睡眠 ");
-  Serial.print(TIME_TO_SLEEP);
-  Serial.println(" 秒...\n");
-
-  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
-  esp_deep_sleep_start();
-}
-
-void loop() {
-  // 深度睡眠模式下不会执行到这里
+  // 进入 Light Sleep，微秒级唤醒
+  // GPIO 状态保持（LED 保持关闭），WiFi 保持连接
+  esp_sleep_enable_timer_wakeup(INTERVAL_SEC * 1000000ULL);
+  esp_light_sleep_start();
 }
