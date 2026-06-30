@@ -2,7 +2,8 @@
  * ESP32 + DHT22 温湿度监控（Light Sleep 版）
  * ==========================================
  * 每次读数上报后进入 Light Sleep 60 秒。
- * WiFi 保持连接，微秒级唤醒，功耗约 ~0.8 mA（比持续运行省电 99%）。
+ * 唤醒后校验 WiFi 状态，断开则自动重连。
+ * GPIO 状态保持（LED 保持关闭）。
  *
  * 接线（DHT22 -> ESP32）：
  *   VCC  -> 3.3V
@@ -127,6 +128,12 @@ void loop() {
   }
   lastSend = now;
 
+  // Light Sleep 唤醒后校验 WiFi 状态，断开则重连
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("⚠ Light Sleep 后 WiFi 断开，重连中...");
+    connectWiFi();
+  }
+
   float temp     = dht.readTemperature();
   float humidity = dht.readHumidity();
 
@@ -146,7 +153,6 @@ void loop() {
   Serial.flush();
 
   // 进入 Light Sleep，微秒级唤醒
-  // GPIO 状态保持（LED 保持关闭），WiFi 保持连接
   esp_sleep_enable_timer_wakeup(INTERVAL_SEC * 1000000ULL);
   esp_light_sleep_start();
 }
