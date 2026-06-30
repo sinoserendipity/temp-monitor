@@ -1,7 +1,8 @@
 /*
- * ESP32 + DHT22 温湿度监控
- * ========================
- * 每 60 秒读取一次，POST 到服务器
+ * ESP32 + DHT22 温湿度监控（深度睡眠版）
+ * ======================================
+ * 每 60 秒唤醒一次，读取数据并上报后进入深度睡眠。
+ * 深度睡眠下电流约 10 µA，比持续运行的 ~80 mA 省电 99%。
  *
  * 接线（DHT22 -> ESP32）：
  *   VCC  -> 3.3V
@@ -11,26 +12,28 @@
  */
 
 #include <WiFi.h>
-#include <WiFiClientSecure.h>
 #include <DHT.h>
 #include <ArduinoJson.h>
+#include <esp_sleep.h>
+
+// ====== 深度睡眠配置 ======
+#define uS_TO_S_FACTOR 1000000ULL
+const int TIME_TO_SLEEP = 60;   // 睡眠时间（秒）
 
 // ====== WiFi 配置 ======
 const char* WIFI_SSID     = "wifi_SSID";
 const char* WIFI_PASSWORD = "wifi_password";
 
 // ====== 服务器配置 ======
-const char* SERVER_HOST   = "www.example.com";
-const int   SERVER_PORT   = 443;
-const char* DEVICE_NAME   = "客厅";            // 改：传感器位置
-const int   INTERVAL_SEC  = 60;                // 上报间隔（秒）
+const char* SERVER_HOST   = "192.168.1.100";   // 服务器地址
+const int   SERVER_PORT   = 5000;               // 服务器端口（HTTP）
+const char* DEVICE_NAME   = "客厅";              // 传感器位置
 
 // ====== DHT22 配置 ======
 #define DHTPIN 4
 #define DHTTYPE DHT22
 
 DHT dht(DHTPIN, DHTTYPE);
-unsigned long lastSend = 0;
 
 // ---------- WiFi 连接 ----------
 
@@ -44,9 +47,10 @@ void connectWiFi() {
     Serial.print(".");
     tries++;
     if (tries > 40) {
-      Serial.println("\n⚠ WiFi 失败，重启中...");
-      delay(3000);
-      ESP.restart();
+      Serial.println("\n⚠ WiFi 失败，进入深度睡眠...");
+      delay(100);
+      esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+      esp_deep_sleep_start();
     }
   }
   Serial.println("\n✅ 已连接，IP: " + WiFi.localIP().toString());
@@ -55,11 +59,7 @@ void connectWiFi() {
 // ---------- 上报数据 ----------
 
 void sendData(float temp, float humidity) {
-  if (WiFi.status() != WL_CONNECTED) {
-    connectWiFi();
-  }
-
-  // 组装 JSON（不加 pressure，服务器会自动填 0）
+  // 组装 JSON
   JsonDocument doc;
   doc["device"]   = DEVICE_NAME;
   doc["temp"]     = temp;
@@ -71,16 +71,15 @@ void sendData(float temp, float humidity) {
   Serial.print("📤 发送: ");
   Serial.println(json);
 
-  // HTTPS POST（跳过证书验证，内网用）
-  WiFiClientSecure client;
-  client.setInsecure();
+  // HTTP POST（内网，无需 TLS）
+  WiFiClient client;
   if (!client.connect(SERVER_HOST, SERVER_PORT)) {
     Serial.println("⚠ 连服务器失败");
     return;
   }
 
   client.println("POST /api/data HTTP/1.1");
-  client.println("Host: " + String(SERVER_HOST));
+  client.println("Host: " + String(SERVER_HOST) + ":" + String(SERVER_PORT));
   client.println("Content-Type: application/json");
   client.print("Content-Length: ");
   client.println(json.length());
@@ -109,35 +108,35 @@ void setup() {
   delay(1000);
 
   Serial.println("\n==============================");
-  Serial.println("🌡 ESP32 + DHT22 温湿度监控");
+  Serial.println("🌡 ESP32 + DHT22 温湿度监控（深度睡眠）");
   Serial.println("==============================");
 
   dht.begin();
   connectWiFi();
-
-  Serial.println("🟢 开始运行，每 " + String(INTERVAL_SEC) + " 秒上报一次\n");
-}
-
-void loop() {
-  unsigned long now = millis();
-  if (now - lastSend < INTERVAL_SEC * 1000UL) {
-    return;
-  }
-  lastSend = now;
 
   float temp     = dht.readTemperature();
   float humidity = dht.readHumidity();
 
   if (isnan(temp) || isnan(humidity)) {
     Serial.println("⚠ DHT22 读取失败");
-    return;
+  } else {
+    Serial.print("🌡 ");
+    Serial.print(temp);
+    Serial.print("°C  💧 ");
+    Serial.print(humidity);
+    Serial.println("%");
+
+    sendData(temp, humidity);
   }
 
-  Serial.print("🌡 ");
-  Serial.print(temp);
-  Serial.print("°C  💧 ");
-  Serial.print(humidity);
-  Serial.println("%");
+  Serial.print("\n💤 进入深度睡眠 ");
+  Serial.print(TIME_TO_SLEEP);
+  Serial.println(" 秒...\n");
 
-  sendData(temp, humidity);
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+  esp_deep_sleep_start();
+}
+
+void loop() {
+  // 深度睡眠模式下不会执行到这里
 }
