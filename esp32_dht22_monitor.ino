@@ -2,6 +2,7 @@
  * ESP32 + DHT22 温湿度监控
  * ========================
  * 每 60 秒读取一次，POST 到服务器（纯 HTTP）
+ * 启动后立即上报首次数据，不等 60 秒。
  *
  * 接线（DHT22 -> ESP32）：
  *   VCC  -> 3.3V
@@ -112,6 +113,23 @@ void setup() {
 
   dht.begin();
   connectWiFi();
+
+  // 连接后立即读一次并上报，不等 60 秒
+  float temp     = dht.readTemperature();
+  float humidity = dht.readHumidity();
+
+  if (!isnan(temp) && !isnan(humidity)) {
+    Serial.print("🌡 ");
+    Serial.print(temp);
+    Serial.print("°C  💧 ");
+    Serial.print(humidity);
+    Serial.println("%");
+
+    sendData(temp, humidity);
+  } else {
+    Serial.println("⚠ 首次 DHT22 读取失败");
+  }
+  lastSend = millis();
 
   Serial.print("\n🟢 开始运行，每 ");
   Serial.print(INTERVAL_SEC);
