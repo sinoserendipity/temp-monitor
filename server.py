@@ -72,8 +72,18 @@ def receive_data():
 
     if temp is None or humidity is None:
         return jsonify({"error": "missing fields (temp, humidity)"}), 400
-    if pressure is None:
-        pressure = 0.0
+
+    if not isinstance(device, str):
+        return jsonify({"error": "device must be a string"}), 400
+
+    device = device.strip() or "unknown"
+
+    try:
+        temp = float(temp)
+        humidity = float(humidity)
+        pressure = 0.0 if pressure is None else float(pressure)
+    except (TypeError, ValueError):
+        return jsonify({"error": "temp, humidity, pressure must be numbers"}), 400
 
     now = datetime.now(timezone.utc).isoformat()
 

@@ -543,6 +543,15 @@ async function loadMonth() {
   }
 }
 
+function refreshCurrentView() {
+  if (currentMode === 'month') {
+    loadMonth();
+    return;
+  }
+
+  fetchData();
+}
+
 function initMonthPicker() {
   const now = new Date();
   const yearSel = document.getElementById('yearSelect');
@@ -844,14 +853,24 @@ function renderCharts(data) {
 }
 
 async function loadDevices() {
-  const r = await fetch('/api/devices');
-  const j = await r.json();
-  const sel = document.getElementById('deviceSelect');
-  j.devices.forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = d; opt.textContent = d;
-    sel.appendChild(opt);
-  });
+  try {
+    const r = await fetch('/api/devices');
+    if (!r.ok) {
+      throw new Error(`HTTP ${r.status}`);
+    }
+
+    const j = await r.json();
+    const sel = document.getElementById('deviceSelect');
+    sel.querySelectorAll('option:not([value="%"])').forEach(opt => opt.remove());
+
+    (j.devices || []).forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d; opt.textContent = d;
+      sel.appendChild(opt);
+    });
+  } catch (err) {
+    console.error('加载设备列表失败', err);
+  }
 }
 
 async function fetchData() {
@@ -875,7 +894,7 @@ async function fetchData() {
 initMonthPicker();
 loadDevices();
 fetchData();
-setInterval(fetchData, 30000);
+setInterval(refreshCurrentView, 30000);
 setInterval(updateStatusFromLastData, 5000);
 </script>
 
