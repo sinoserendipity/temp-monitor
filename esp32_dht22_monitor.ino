@@ -1,9 +1,7 @@
 /*
- * ESP32 + DHT22 温湿度监控（Light Sleep 版）
- * ==========================================
- * 每次读数上报后进入 Light Sleep 60 秒。
- * 唤醒后校验 WiFi 状态，断开则自动重连。
- * GPIO 状态保持（LED 保持关闭）。
+ * ESP32 + DHT22 温湿度监控
+ * ========================
+ * 每 60 秒读取一次，POST 到服务器（纯 HTTP）
  *
  * 接线（DHT22 -> ESP32）：
  *   VCC  -> 3.3V
@@ -15,7 +13,6 @@
 #include <WiFi.h>
 #include <DHT.h>
 #include <ArduinoJson.h>
-#include <esp_sleep.h>
 
 // ====== WiFi 配置 ======
 const char* WIFI_SSID     = "wifi_SSID";
@@ -32,9 +29,7 @@ const int   INTERVAL_SEC  = 60;                 // 上报间隔（秒）
 #define DHTTYPE DHT22
 
 DHT dht(DHTPIN, DHTTYPE);
-
-// 板载 LED（大部分 ESP32 Dev Board 是 GPIO2）
-#define LED_BUILTIN 2
+unsigned long lastSend = 0;
 
 // ---------- WiFi 连接 ----------
 
@@ -59,6 +54,10 @@ void connectWiFi() {
 // ---------- 上报数据 ----------
 
 void sendData(float temp, float humidity) {
+  if (WiFi.status() != WL_CONNECTED) {
+    connectWiFi();
+  }
+
   // 组装 JSON
   JsonDocument doc;
   doc["device"]   = DEVICE_NAME;
@@ -108,51 +107,37 @@ void setup() {
   delay(1000);
 
   Serial.println("\n==============================");
-  Serial.println("🌡 ESP32 + DHT22 温湿度监控（Light Sleep）");
+  Serial.println("🌡 ESP32 + DHT22 温湿度监控");
   Serial.println("==============================");
-
-  // 关掉板载 LED
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, LOW);
 
   dht.begin();
   connectWiFi();
+
+  Serial.print("\n🟢 开始运行，每 ");
+  Serial.print(INTERVAL_SEC);
+  Serial.println(" 秒上报一次\n");
 }
 
 void loop() {
   unsigned long now = millis();
-  static unsigned long lastSend = 0;
-
   if (now - lastSend < INTERVAL_SEC * 1000UL) {
     return;
   }
   lastSend = now;
-
-  // Light Sleep 唤醒后校验 WiFi 状态，断开则重连
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("⚠ Light Sleep 后 WiFi 断开，重连中...");
-    connectWiFi();
-  }
 
   float temp     = dht.readTemperature();
   float humidity = dht.readHumidity();
 
   if (isnan(temp) || isnan(humidity)) {
     Serial.println("⚠ DHT22 读取失败");
-  } else {
-    Serial.print("🌡 ");
-    Serial.print(temp);
-    Serial.print("°C  💧 ");
-    Serial.print(humidity);
-    Serial.println("%");
-
-    sendData(temp, humidity);
+    return;
   }
 
-  // 确保串口缓冲区发完再睡，否则日志被截断
-  Serial.flush();
+  Serial.print("🌡 ");
+  Serial.print(temp);
+  Serial.print("°C  💧 ");
+  Serial.print(humidity);
+  Serial.println("%");
 
-  // 进入 Light Sleep，微秒级唤醒
-  esp_sleep_enable_timer_wakeup(INTERVAL_SEC * 1000000ULL);
-  esp_light_sleep_start();
+  sendData(temp, humidity);
 }
