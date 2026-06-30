@@ -142,6 +142,9 @@ void loop() {
     sendData(temp, humidity);
   }
 
+  // 确保串口缓冲区发完再睡，否则日志被截断
+  Serial.flush();
+
   // 进入 Light Sleep，微秒级唤醒
   // GPIO 状态保持（LED 保持关闭），WiFi 保持连接
   esp_sleep_enable_timer_wakeup(INTERVAL_SEC * 1000000ULL);
