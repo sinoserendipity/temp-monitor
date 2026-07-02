@@ -298,7 +298,6 @@ const colors = {
   hum:  { bg: 'rgba(0,240,255,0.1)', border: '#00f0ff', point: '#00f0ff' },
 };
 
-// 温度 → 连续渐变（线性插值：深蓝 → 蓝 → 青 → 黄 → 橙 → 红）
 const tempStops = [
   { t: -10, r: 0x00, g: 0x33, b: 0xcc },
   { t:   0, r: 0x00, g: 0x66, b: 0xff },
@@ -343,29 +342,15 @@ function tempColorRgba(temp, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-// 基于 y 轴像素位置构建连续的 Canvas 渐变（替代逐段纯色），
-// 这样线条颜色是真正沿曲线平滑过渡，而不是"一段一个色"跳变。
-// 每次渲染时 Chart.js 会重新调用这个函数（scriptable option），
-// 所以缩放、切换时间范围导致的 y 轴范围变化也会自动适配。
-//
-// 两个需要防护的坑：
-// 1) Chart.js 在首次布局阶段会先用一个高度为 0 的临时 chartArea 调用
-//    本函数（容器尚未完成实际测量），(pixel-top)/(bottom-top) 会算出
-//    NaN，addColorStop(NaN,...) 抛异常会导致整个 Chart 构造失败、
-//    曲线完全不渲染——下面显式校验 height/yMin/yMax 是否为有限数。
-// 2) y 轴默认数值越大、像素位置越靠上（offset 越小），如果直接按
-//    "温度数值升序"去处理偏移量，方向是反的；必须先算出每个断点的
-//    真实 offset，再按 offset 升序排列，否则渐变会被错误地挤压塌缩
-//    成同一种颜色，看起来就跟没渐变一样。
 function buildTempGradient(chartCtx, withAlpha) {
   const fallback = withAlpha ? 'transparent' : '#888';
   try {
     const { chart } = chartCtx;
     const { ctx, chartArea, scales } = chart;
-    if (!chartArea) return fallback; // 布局尚未开始
+    if (!chartArea) return fallback;
 
     const height = chartArea.bottom - chartArea.top;
-    if (!Number.isFinite(height) || height <= 0) return fallback; // 布局中的零高度临时帧
+    if (!Number.isFinite(height) || height <= 0) return fallback;
 
     const yScale = scales && scales.y;
     if (!yScale) return fallback;
@@ -375,14 +360,11 @@ function buildTempGradient(chartCtx, withAlpha) {
 
     const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
 
-    // 收集断点温度值：y 轴上下边界 + 落在范围内的 tempStops
     const values = [yMin, yMax];
     tempStops.forEach(s => {
       if (s.t > yMin && s.t < yMax) values.push(s.t);
     });
 
-    // 先把每个温度值换算成真实的 offset，再按 offset 排序，
-    // 而不是按温度值排序——避免坐标方向反转导致渐变塌缩。
     const points = values
       .map(val => {
         const pixel = yScale.getPixelForValue(val);
@@ -396,7 +378,7 @@ function buildTempGradient(chartCtx, withAlpha) {
     let lastOffset = -1;
     points.forEach(p => {
       let offset = p.offset;
-      if (offset <= lastOffset) offset = Math.min(1, lastOffset + 0.0001); // 避免重复偏移
+      if (offset <= lastOffset) offset = Math.min(1, lastOffset + 0.0001);
       lastOffset = offset;
       const color = withAlpha ? tempColorRgba(p.val, 0.12) : tempColor(p.val);
       gradient.addColorStop(offset, color);
@@ -404,20 +386,14 @@ function buildTempGradient(chartCtx, withAlpha) {
 
     return gradient;
   } catch (e) {
-    // 任何意外情况都不能让整张图表渲染失败，退回到纯色兜底
     return fallback;
   }
 }
 
-
-// 温湿指数 (THI) = 0.8 × T + (RH/100) × (T - 14.4) + 46.4
 function computeTHI(temp, humidity) {
   return 0.8 * temp + (humidity / 100) * (temp - 14.4) + 46.4;
 }
 
-// THI 体感分级：统一使用家用仪表盘语气，避免把舒适度和风险告警混在一起
-// <45：冷　45-50：清凉　51-58：偏凉　59-70：舒适
-// 71-76：偏暖　77-80：闷热　81-84：很闷热　85+：极闷热
 function getComfortLevel(thi) {
   if (thi < 45)  return { text: '🥶 冷', cls: 'comfort-cold', color: '#4da3ff' };
   if (thi < 51)  return { text: '❄️ 清凉', cls: 'comfort-cold', color: '#66ccff' };
@@ -431,7 +407,6 @@ function getComfortLevel(thi) {
 
 function formatTime(isoStr) {
   const t = new Date(isoStr);
-  // 月视图用更紧凑的格式
   if (currentMode === 'month') {
     return t.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit' });
   }
@@ -488,7 +463,7 @@ function updateStatusFromLastData() {
   dotEl.className = status.dotClass;
 }
 
-let currentMode = 'relative'; // 'relative' | 'month'
+let currentMode = 'relative';
 
 function setHours(h) {
   currentMode = 'relative';
@@ -497,10 +472,8 @@ function setHours(h) {
     b.classList.toggle('active', parseInt(b.dataset.h) === h);
   });
   document.getElementById('monthBtn').classList.remove('active');
-  // 切换到相对时间：年份月份下拉变虚，但 📅 按钮保持可点
   document.getElementById('yearSelect').classList.add('dimmed');
   document.getElementById('monthSelect').classList.add('dimmed');
-  // 时间按钮恢复
   document.querySelectorAll('.controls button[data-h]').forEach(b => b.classList.remove('dimmed'));
   fetchData();
 }
@@ -521,7 +494,6 @@ async function loadMonth() {
   currentMode = 'month';
   document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
   document.getElementById('monthBtn').classList.add('active');
-  // 切换到月份：年份月份下拉恢复，时间按钮保持可点
   document.getElementById('yearSelect').classList.remove('dimmed');
   document.getElementById('monthSelect').classList.remove('dimmed');
 
@@ -543,19 +515,9 @@ async function loadMonth() {
   }
 }
 
-function refreshCurrentView() {
-  if (currentMode === 'month') {
-    loadMonth();
-    return;
-  }
-
-  fetchData();
-}
-
 function initMonthPicker() {
   const now = new Date();
   const yearSel = document.getElementById('yearSelect');
-  // 显示过去 3 年
   for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) {
     const opt = document.createElement('option');
     opt.value = y; opt.textContent = `${y} 年`;
@@ -563,7 +525,6 @@ function initMonthPicker() {
   }
   yearSel.value = now.getFullYear();
   document.getElementById('monthSelect').value = now.getMonth() + 1;
-  // 默认相对时间模式，年份月份下拉变虚
   document.getElementById('yearSelect').classList.add('dimmed');
   document.getElementById('monthSelect').classList.add('dimmed');
 }
@@ -746,7 +707,9 @@ function buildChart(ctx, label, data, color, unit, isTemp) {
           bodyColor: '#c9d1d9',
           borderColor: '#30363d',
           borderWidth: 1,
-          padding: 10,
+          titleFont: { size: 15, weight: '700' },
+          bodyFont: { size: 15, weight: '700' },
+          padding: 14,
           callbacks: {
             label: ctx => {
               const val = ctx.parsed.y;
@@ -812,7 +775,9 @@ function buildTHIChart(ctx, data) {
           bodyColor: '#c9d1d9',
           borderColor: '#30363d',
           borderWidth: 1,
-          padding: 10,
+          titleFont: { size: 15, weight: '700' },
+          bodyFont: { size: 15, weight: '700' },
+          padding: 14,
           callbacks: {
             label: ctx => {
               const thi = ctx.parsed.y;
@@ -853,24 +818,14 @@ function renderCharts(data) {
 }
 
 async function loadDevices() {
-  try {
-    const r = await fetch('/api/devices');
-    if (!r.ok) {
-      throw new Error(`HTTP ${r.status}`);
-    }
-
-    const j = await r.json();
-    const sel = document.getElementById('deviceSelect');
-    sel.querySelectorAll('option:not([value="%"])').forEach(opt => opt.remove());
-
-    (j.devices || []).forEach(d => {
-      const opt = document.createElement('option');
-      opt.value = d; opt.textContent = d;
-      sel.appendChild(opt);
-    });
-  } catch (err) {
-    console.error('加载设备列表失败', err);
-  }
+  const r = await fetch('/api/devices');
+  const j = await r.json();
+  const sel = document.getElementById('deviceSelect');
+  j.devices.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d; opt.textContent = d;
+    sel.appendChild(opt);
+  });
 }
 
 async function fetchData() {
@@ -894,8 +849,8 @@ async function fetchData() {
 initMonthPicker();
 loadDevices();
 fetchData();
-setInterval(refreshCurrentView, 30000);
-setInterval(updateStatusFromLastData, 5000);
+setInterval(fetchData, 30000);
+setInterval(updateStatusFromLastData, 1000);
 </script>
 
 </body>
