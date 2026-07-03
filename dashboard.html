@@ -572,21 +572,17 @@ async function loadMonth() {
   document.getElementById('monthSelect').classList.remove('dimmed');
   setLoadingState(label);
 
-  console.time('loadMonth:fetch');
   const url = `/api/data?device=${encodeURIComponent(currentDevice)}&from=${from}&to=${to}`;
   try {
     const r = await fetch(url);
     const j = await r.json();
-    console.timeEnd('loadMonth:fetch');
     allData = j.data || [];
     lastDataTimestamp = allData.length ? allData[allData.length - 1].time : null;
     updateStatusFromLastData();
     document.getElementById('dataCount').textContent = `${label} · ${allData.length} 条数据`;
-    console.time('loadMonth:render');
     updateLatest(allData);
     updateStats(allData);
     renderCharts(allData);
-    console.timeEnd('loadMonth:render');
   } catch {
     document.getElementById('statusDot').className = 'status-dot offline';
     document.getElementById('statusText').textContent = '接口离线';
@@ -757,11 +753,11 @@ function buildChart(ctx, label, data, color, unit, isTemp) {
 
   const dataset = isTemp ? {
     label, data: values,
-    borderColor: '#ff8800',
-    backgroundColor: 'rgba(255,136,0,0.12)',
+    borderColor: ctx => buildTempGradient(ctx, false),
+    backgroundColor: ctx => buildTempGradient(ctx, true),
     pointRadius: fewPoints ? 4 : 0,
     pointHitRadius: 6,
-    pointBackgroundColor: '#ff8800',
+    pointBackgroundColor: ctx => buildTempGradient(ctx, false),
     borderWidth: 3,
     tension: 0.3,
     fill: true,
@@ -834,11 +830,11 @@ function buildTHIChart(ctx, data) {
       datasets: [{
         label: 'THI',
         data: values,
-        borderColor: '#ff9e00',
-        backgroundColor: 'rgba(255,158,0,0.12)',
+        borderColor: ctx => buildTHIGradient(ctx, false),
+        backgroundColor: ctx => buildTHIGradient(ctx, true),
         pointRadius: fewPoints ? 4 : 0,
         pointHitRadius: 6,
-        pointBackgroundColor: '#ff9e00',
+        pointBackgroundColor: ctx => buildTHIGradient(ctx, false),
         borderWidth: 3,
         tension: 0.3,
         fill: true,
@@ -893,28 +889,13 @@ function renderCharts(data) {
     // 已有图表 → 直接更新数据，不重建实例
     tempChart.data.labels = labels;
     tempChart.data.datasets[0].data = tempValues;
-    tempChart.config.data.labels = labels;
-    tempChart.config.data.datasets[0].data = tempValues;
-    console.time('renderCharts:temp:update');
     tempChart.update('none');
-    console.timeEnd('renderCharts:temp:update');
-    console.log('tempChart post-update:', {id: tempChart.id, chartArea: JSON.stringify(tempChart.chartArea), width: tempChart.width, height: tempChart.height, dataPoints: tempChart.data.datasets[0].data.length, visible: tempChart.ctx?.canvas?.offsetParent !== null});
     humChart.data.labels = labels;
     humChart.data.datasets[0].data = humValues;
     humChart.update('none');
     thiChart.data.labels = labels;
     thiChart.data.datasets[0].data = thiValues;
     thiChart.update('none');
-
-    // 强制同步重绘
-    try {
-      tempChart.draw();
-      humChart.draw();
-      thiChart.draw();
-      // 强制触发浏览器合成：读取 layout 属性迫使浏览器刷新渲染队列
-      const _ = tempChart.canvas.offsetHeight;
-      console.log('sync draw + reflow done');
-    } catch(e) { console.log('sync draw error', e); }
   } else {
     // 首次加载 → 创建新图表
     tempChart = buildChart(
