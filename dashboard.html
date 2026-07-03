@@ -533,10 +533,7 @@ function setLoadingState(label) {
   document.getElementById('dataCount').textContent = label ? `${label} · 加载中` : '加载中';
   updateLatest([]);
   updateStats([]);
-  // 立刻清掉旧图表，避免旧图还挂在画布上
-  if (tempChart) { tempChart.destroy(); tempChart = null; }
-  if (humChart) { humChart.destroy(); humChart = null; }
-  if (thiChart) { thiChart.destroy(); thiChart = null; }
+  // 不销毁图表，只清摘要——避免重建 Chart 实例时的渲染问题
 }
 
 let currentMode = 'relative'; // 'relative' | 'month'
@@ -886,19 +883,35 @@ function buildTHIChart(ctx, data) {
 }
 
 function renderCharts(data) {
-  if (tempChart) tempChart.destroy();
-  if (humChart) humChart.destroy();
-  if (thiChart) thiChart.destroy();
+  const chartData = addGapBreaks(data);
+  const labels = chartData.map(d => formatTime(d.time));
+  const tempValues = chartData.map(d => d.__gap ? null : d.temp);
+  const humValues = chartData.map(d => d.__gap ? null : d.humidity);
+  const thiValues = chartData.map(d => d.__gap ? null : computeTHI(d.temp, d.humidity));
 
-  tempChart = buildChart(
-    document.getElementById('tempChart'), '温度', data, null, '°C', true
-  );
-  humChart = buildChart(
-    document.getElementById('humChart'), '湿度', data, colors.hum, '%', false
-  );
-  thiChart = buildTHIChart(
-    document.getElementById('thiChart'), data
-  );
+  if (tempChart) {
+    // 已有图表 → 直接更新数据，不重建实例
+    tempChart.data.labels = labels;
+    tempChart.data.datasets[0].data = tempValues;
+    tempChart.update('none');
+    humChart.data.labels = labels;
+    humChart.data.datasets[0].data = humValues;
+    humChart.update('none');
+    thiChart.data.labels = labels;
+    thiChart.data.datasets[0].data = thiValues;
+    thiChart.update('none');
+  } else {
+    // 首次加载 → 创建新图表
+    tempChart = buildChart(
+      document.getElementById('tempChart'), '温度', data, null, '°C', true
+    );
+    humChart = buildChart(
+      document.getElementById('humChart'), '湿度', data, colors.hum, '%', false
+    );
+    thiChart = buildTHIChart(
+      document.getElementById('thiChart'), data
+    );
+  }
 }
 
 async function loadDevices() {
