@@ -969,14 +969,15 @@ async function fetchData() {
 initMonthPicker();
 loadDevices();
 fetchData();
-setInterval(() => {
-  if (currentMode === 'month') {
-    loadMonth();
-    return;
-  }
-  fetchData();
-}, 30000);
-setInterval(updateStatusFromLastData, 1000);
+// DEBUG: 先关掉所有定时器，排除干扰
+// setInterval(() => {
+//   if (currentMode === 'month') {
+//     loadMonth();
+//     return;
+//   }
+//   fetchData();
+// }, 30000);
+// setInterval(updateStatusFromLastData, 1000);
 </script>
 
 </body>
