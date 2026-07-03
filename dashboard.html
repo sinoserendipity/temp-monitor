@@ -527,6 +527,14 @@ function updateStatusFromLastData() {
   dotEl.className = status.dotClass;
 }
 
+function setLoadingState(label) {
+  document.getElementById('statusDot').className = 'status-dot stale';
+  document.getElementById('statusText').textContent = '加载中...';
+  document.getElementById('dataCount').textContent = label ? `${label} · 加载中` : '加载中';
+  updateLatest([]);
+  updateStats([]);
+}
+
 let currentMode = 'relative'; // 'relative' | 'month'
 
 function setHours(h) {
@@ -554,12 +562,14 @@ async function loadMonth() {
   const year = parseInt(document.getElementById('yearSelect').value);
   const month = parseInt(document.getElementById('monthSelect').value);
   const { from, to } = getMonthRange(year, month);
+  const label = `${year} 年 ${month} 月`;
 
   currentMode = 'month';
   document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
   document.getElementById('monthBtn').classList.add('active');
   document.getElementById('yearSelect').classList.remove('dimmed');
   document.getElementById('monthSelect').classList.remove('dimmed');
+  setLoadingState(label);
 
   const url = `/api/data?device=${encodeURIComponent(currentDevice)}&from=${from}&to=${to}`;
   try {
@@ -568,7 +578,6 @@ async function loadMonth() {
     allData = j.data || [];
     lastDataTimestamp = allData.length ? allData[allData.length - 1].time : null;
     updateStatusFromLastData();
-    const label = `${year} 年 ${month} 月`;
     document.getElementById('dataCount').textContent = `${label} · ${allData.length} 条数据`;
     updateLatest(allData);
     updateStats(allData);
@@ -576,6 +585,7 @@ async function loadMonth() {
   } catch {
     document.getElementById('statusDot').className = 'status-dot offline';
     document.getElementById('statusText').textContent = '接口离线';
+    document.getElementById('dataCount').textContent = `${label} · 加载失败`;
   }
 }
 
