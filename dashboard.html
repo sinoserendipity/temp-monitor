@@ -256,8 +256,8 @@
   <button onclick="setHours(168)" data-h="168">7 天</button>
   <button onclick="setHours(720)" data-h="720">30 天</button>
   <span style="color:var(--text-dim);margin:0 6px;font-size:13px">|</span>
-  <select id="yearSelect" style="background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;font-size:13px"></select>
-  <select id="monthSelect" style="background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;font-size:13px">
+  <select id="yearSelect" onchange="loadMonth()" style="background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;font-size:13px"></select>
+  <select id="monthSelect" onchange="loadMonth()" style="background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;font-size:13px">
     <option value="1">1 月</option><option value="2">2 月</option><option value="3">3 月</option>
     <option value="4">4 月</option><option value="5">5 月</option><option value="6">6 月</option>
     <option value="7">7 月</option><option value="8">8 月</option><option value="9">9 月</option>
@@ -879,35 +879,19 @@ function buildTHIChart(ctx, data) {
 }
 
 function renderCharts(data) {
-  const chartData = addGapBreaks(data);
-  const labels = chartData.map(d => formatTime(d.time));
-  const tempValues = chartData.map(d => d.__gap ? null : d.temp);
-  const humValues = chartData.map(d => d.__gap ? null : d.humidity);
-  const thiValues = chartData.map(d => d.__gap ? null : computeTHI(d.temp, d.humidity));
+  if (tempChart) tempChart.destroy();
+  if (humChart) humChart.destroy();
+  if (thiChart) thiChart.destroy();
 
-  if (tempChart) {
-    // 已有图表 → 直接更新数据，不重建实例
-    tempChart.data.labels = labels;
-    tempChart.data.datasets[0].data = tempValues;
-    tempChart.update('none');
-    humChart.data.labels = labels;
-    humChart.data.datasets[0].data = humValues;
-    humChart.update('none');
-    thiChart.data.labels = labels;
-    thiChart.data.datasets[0].data = thiValues;
-    thiChart.update('none');
-  } else {
-    // 首次加载 → 创建新图表
-    tempChart = buildChart(
-      document.getElementById('tempChart'), '温度', data, null, '°C', true
-    );
-    humChart = buildChart(
-      document.getElementById('humChart'), '湿度', data, colors.hum, '%', false
-    );
-    thiChart = buildTHIChart(
-      document.getElementById('thiChart'), data
-    );
-  }
+  tempChart = buildChart(
+    document.getElementById('tempChart'), '温度', data, null, '°C', true
+  );
+  humChart = buildChart(
+    document.getElementById('humChart'), '湿度', data, colors.hum, '%', false
+  );
+  thiChart = buildTHIChart(
+    document.getElementById('thiChart'), data
+  );
 }
 
 async function loadDevices() {
