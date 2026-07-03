@@ -577,7 +577,6 @@ async function loadMonth() {
     const r = await fetch(url);
     const j = await r.json();
     allData = j.data || [];
-    lastDataTimestamp = allData.length ? allData[allData.length - 1].time : null;
     updateStatusFromLastData();
     document.getElementById('dataCount').textContent = `${label} · ${allData.length} 条数据`;
     updateLatest(allData);
