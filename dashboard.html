@@ -533,6 +533,10 @@ function setLoadingState(label) {
   document.getElementById('dataCount').textContent = label ? `${label} · 加载中` : '加载中';
   updateLatest([]);
   updateStats([]);
+  // 立刻清掉旧图表，避免旧图还挂在画布上
+  if (tempChart) { tempChart.destroy(); tempChart = null; }
+  if (humChart) { humChart.destroy(); humChart = null; }
+  if (thiChart) { thiChart.destroy(); thiChart = null; }
 }
 
 let currentMode = 'relative'; // 'relative' | 'month'
@@ -571,17 +575,21 @@ async function loadMonth() {
   document.getElementById('monthSelect').classList.remove('dimmed');
   setLoadingState(label);
 
+  console.time('loadMonth:fetch');
   const url = `/api/data?device=${encodeURIComponent(currentDevice)}&from=${from}&to=${to}`;
   try {
     const r = await fetch(url);
     const j = await r.json();
+    console.timeEnd('loadMonth:fetch');
     allData = j.data || [];
     lastDataTimestamp = allData.length ? allData[allData.length - 1].time : null;
     updateStatusFromLastData();
     document.getElementById('dataCount').textContent = `${label} · ${allData.length} 条数据`;
+    console.time('loadMonth:render');
     updateLatest(allData);
     updateStats(allData);
     renderCharts(allData);
+    console.timeEnd('loadMonth:render');
   } catch {
     document.getElementById('statusDot').className = 'status-dot offline';
     document.getElementById('statusText').textContent = '接口离线';
