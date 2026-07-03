@@ -895,17 +895,22 @@ function renderCharts(data) {
 }
 
 async function loadDevices() {
-  const r = await fetch('/api/devices');
-  const j = await r.json();
-  const sel = document.getElementById('deviceSelect');
-  j.devices.forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = d; opt.textContent = d;
-    sel.appendChild(opt);
-  });
+  try {
+    const r = await fetch('/api/devices');
+    const j = await r.json();
+    const sel = document.getElementById('deviceSelect');
+    j.devices.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d; opt.textContent = d;
+      sel.appendChild(opt);
+    });
+  } catch {
+    // 设备列表加载失败不阻塞页面
+  }
 }
 
 async function fetchData() {
+  setLoadingState(null);
   const url = `/api/data?device=${encodeURIComponent(currentDevice)}&hours=${currentHours}`;
   try {
     const r = await fetch(url);
