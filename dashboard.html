@@ -906,13 +906,13 @@ function renderCharts(data) {
     thiChart.data.datasets[0].data = thiValues;
     thiChart.update('none');
 
-    // 强制再描画一次
-    requestAnimationFrame(() => {
+    // 强制同步重绘，不依赖 RAF
+    try {
       tempChart.draw();
       humChart.draw();
       thiChart.draw();
-      console.log('RAF forced redraw done');
-    });
+      console.log('sync draw done, chartArea:', tempChart.chartArea ? 'ok' : 'null');
+    } catch(e) { console.log('sync draw error', e); }
   } else {
     // 首次加载 → 创建新图表
     tempChart = buildChart(
