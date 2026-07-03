@@ -787,6 +787,7 @@ function buildChart(ctx, label, data, color, unit, isTemp) {
       datasets: [dataset],
     },
     options: {
+      animation: false,
       maintainAspectRatio: false,
       interaction: { intersect: false, mode: 'index' },
       plugins: {
@@ -847,6 +848,7 @@ function buildTHIChart(ctx, data) {
       }],
     },
     options: {
+      animation: false,
       maintainAspectRatio: false,
       interaction: { intersect: false, mode: 'index' },
       plugins: {
