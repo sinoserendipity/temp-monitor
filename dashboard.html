@@ -380,6 +380,20 @@ function colorRgbaFromStops(stops, value, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+// 基于 y 轴像素位置构建连续的 Canvas 渐变（替代逐段纯色），
+// 这样线条颜色是真正沿曲线平滑过渡，而不是"一段一个色"跳变。
+// 每次渲染时 Chart.js 会重新调用这个函数（scriptable option），
+// 所以缩放、切换时间范围导致的 y 轴范围变化也会自动适配。
+//
+// 两个需要防护的坑：
+// 1) Chart.js 在首次布局阶段会先用一个高度为 0 的临时 chartArea 调用
+//    本函数（容器尚未完成实际测量），(pixel-top)/(bottom-top) 会算出
+//    NaN，addColorStop(NaN,...) 抛异常会导致整个 Chart 构造失败、
+//    曲线完全不渲染——下面显式校验 height/yMin/yMax 是否为有限数。
+// 2) y 轴默认数值越大、像素位置越靠上（offset 越小），如果直接按
+//    "温度数值升序"去处理偏移量，方向是反的；必须先算出每个断点的
+//    真实 offset，再按 offset 升序排列，否则渐变会被错误地挤压塌缩
+//    成同一种颜色，看起来就跟没渐变一样。
 function buildValueGradient(chartCtx, stops, withAlpha, fallbackSolid = '#888') {
   const fallback = withAlpha ? 'transparent' : fallbackSolid;
   try {
@@ -436,10 +450,17 @@ function buildTHIGradient(chartCtx, withAlpha) {
   return buildValueGradient(chartCtx, thiStops, withAlpha, '#ff9e00');
 }
 
+
 function computeTHI(temp, humidity) {
   return 0.8 * temp + (humidity / 100) * (temp - 14.4) + 46.4;
 }
 
+<<<<<<< HEAD
+=======
+// THI 体感分级：统一使用家用仪表盘语气，避免把舒适度和风险告警混在一起
+// <45：冷　45-50：清凉　51-58：偏凉　59-70：舒适
+// 71-76：偏暖　77-80：闷热　81-84：很闷热　85+：极闷热
+>>>>>>> e8e70ad (fix: preserve month mode during auto refresh)
 function getComfortLevel(thi) {
   if (thi < 45)  return { text: '🥶 冷', cls: 'comfort-cold', color: '#4da3ff' };
   if (thi < 51)  return { text: '❄️ 清凉', cls: 'comfort-cold', color: '#66ccff' };
@@ -509,7 +530,11 @@ function updateStatusFromLastData() {
   dotEl.className = status.dotClass;
 }
 
+<<<<<<< HEAD
 let currentMode = 'relative';
+=======
+let currentMode = 'relative'; // 'relative' | 'month'
+>>>>>>> e8e70ad (fix: preserve month mode during auto refresh)
 
 function setHours(h) {
   currentMode = 'relative';
@@ -577,6 +602,10 @@ function initMonthPicker() {
 
 function switchDevice() {
   currentDevice = document.getElementById('deviceSelect').value;
+  if (currentMode === 'month') {
+    loadMonth();
+    return;
+  }
   fetchData();
 }
 
@@ -885,7 +914,13 @@ async function fetchData() {
 initMonthPicker();
 loadDevices();
 fetchData();
-setInterval(fetchData, 30000);
+setInterval(() => {
+  if (currentMode === 'month') {
+    loadMonth();
+    return;
+  }
+  fetchData();
+}, 30000);
 setInterval(updateStatusFromLastData, 1000);
 </script>
 
