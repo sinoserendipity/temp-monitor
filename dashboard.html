@@ -893,13 +893,26 @@ function renderCharts(data) {
     // 已有图表 → 直接更新数据，不重建实例
     tempChart.data.labels = labels;
     tempChart.data.datasets[0].data = tempValues;
+    tempChart.config.data.labels = labels;
+    tempChart.config.data.datasets[0].data = tempValues;
+    console.time('renderCharts:temp:update');
     tempChart.update('none');
+    console.timeEnd('renderCharts:temp:update');
+    console.log('tempChart post-update:', {id: tempChart.id, chartArea: JSON.stringify(tempChart.chartArea), width: tempChart.width, height: tempChart.height, dataPoints: tempChart.data.datasets[0].data.length, visible: tempChart.ctx?.canvas?.offsetParent !== null});
     humChart.data.labels = labels;
     humChart.data.datasets[0].data = humValues;
     humChart.update('none');
     thiChart.data.labels = labels;
     thiChart.data.datasets[0].data = thiValues;
     thiChart.update('none');
+
+    // 强制再描画一次
+    requestAnimationFrame(() => {
+      tempChart.draw();
+      humChart.draw();
+      thiChart.draw();
+      console.log('RAF forced redraw done');
+    });
   } else {
     // 首次加载 → 创建新图表
     tempChart = buildChart(
