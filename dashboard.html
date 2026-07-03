@@ -911,7 +911,17 @@ function renderCharts(data) {
       tempChart.draw();
       humChart.draw();
       thiChart.draw();
-      console.log('sync draw done, chartArea:', tempChart.chartArea ? 'ok' : 'null');
+      // 原生 canvas 测试：画一条红线，验证 canvas 上下文正常
+      const testCtx = tempChart.ctx;
+      testCtx.save();
+      testCtx.strokeStyle = '#ff0000';
+      testCtx.lineWidth = 4;
+      testCtx.beginPath();
+      testCtx.moveTo(10, 10);
+      testCtx.lineTo(testCtx.canvas.width - 10, testCtx.canvas.height - 10);
+      testCtx.stroke();
+      testCtx.restore();
+      console.log('sync draw done + red line test');
     } catch(e) { console.log('sync draw error', e); }
   } else {
     // 首次加载 → 创建新图表
