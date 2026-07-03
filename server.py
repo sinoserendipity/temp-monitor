@@ -127,22 +127,22 @@ def get_data():
 
         if span_hours <= 48:
             query = f"""SELECT AVG(temp), AVG(humidity), AVG(pressure),
-                        datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 120 * 120, 'unixepoch') || 'Z'
+                        datetime(CAST(strftime('%s', timestamp) AS INTEGER) / 120 * 120, 'unixepoch') || 'Z'
                         FROM readings WHERE {conditions} GROUP BY 4 ORDER BY 4 ASC"""
             mode = "avg_2m"
         elif span_hours <= 168:
             query = f"""SELECT AVG(temp), AVG(humidity), AVG(pressure),
-                        datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 900 * 900, 'unixepoch') || 'Z'
+                        datetime(CAST(strftime('%s', timestamp) AS INTEGER) / 900 * 900, 'unixepoch') || 'Z'
                         FROM readings WHERE {conditions} GROUP BY 4 ORDER BY 4 ASC"""
             mode = "avg_15m"
         elif span_hours <= 720:
             query = f"""SELECT AVG(temp), AVG(humidity), AVG(pressure),
-                        datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 3600 * 3600, 'unixepoch') || 'Z'
+                        datetime(CAST(strftime('%s', timestamp) AS INTEGER) / 3600 * 3600, 'unixepoch') || 'Z'
                         FROM readings WHERE {conditions} GROUP BY 4 ORDER BY 4 ASC"""
             mode = "avg_1h"
         else:
             query = f"""SELECT AVG(temp), AVG(humidity), AVG(pressure),
-                        datetime(CAST(strftime('%%s', timestamp) AS INTEGER) / 21600 * 21600, 'unixepoch') || 'Z'
+                        datetime(CAST(strftime('%s', timestamp) AS INTEGER) / 21600 * 21600, 'unixepoch') || 'Z'
                         FROM readings WHERE {conditions} GROUP BY 4 ORDER BY 4 ASC"""
             mode = "avg_6h"
 
