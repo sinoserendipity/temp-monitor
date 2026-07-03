@@ -755,13 +755,16 @@ function buildChart(ctx, label, data, color, unit, isTemp) {
     if (unit === '%') return d.humidity;
     return d.temp;
   });
+  // 数据点太少时至少显示点标记，不然空图让人以为没加载
+  const fewPoints = values.filter(v => v !== null).length <= 2;
 
   const dataset = isTemp ? {
     label, data: values,
     borderColor: ctx => buildTempGradient(ctx, false),
     backgroundColor: ctx => buildTempGradient(ctx, true),
-    pointRadius: 0,
+    pointRadius: fewPoints ? 4 : 0,
     pointHitRadius: 6,
+    pointBackgroundColor: ctx => buildTempGradient(ctx, false),
     borderWidth: 3,
     tension: 0.3,
     fill: true,
@@ -769,8 +772,9 @@ function buildChart(ctx, label, data, color, unit, isTemp) {
     label, data: values,
     borderColor: color.border,
     backgroundColor: color.bg,
-    pointRadius: 0,
+    pointRadius: fewPoints ? 4 : 0,
     pointHitRadius: 6,
+    pointBackgroundColor: color.border,
     borderWidth: 2,
     tension: 0.3,
     fill: true,
@@ -823,6 +827,7 @@ function buildTHIChart(ctx, data) {
   const chartData = addGapBreaks(data);
   const labels = chartData.map(d => formatTime(d.time));
   const values = chartData.map(d => d.__gap ? null : computeTHI(d.temp, d.humidity));
+  const fewPoints = values.filter(v => v !== null).length <= 2;
 
   return new Chart(ctx, {
     type: 'line',
@@ -833,8 +838,9 @@ function buildTHIChart(ctx, data) {
         data: values,
         borderColor: ctx => buildTHIGradient(ctx, false),
         backgroundColor: ctx => buildTHIGradient(ctx, true),
-        pointRadius: 0,
+        pointRadius: fewPoints ? 4 : 0,
         pointHitRadius: 6,
+        pointBackgroundColor: ctx => buildTHIGradient(ctx, false),
         borderWidth: 3,
         tension: 0.3,
         fill: true,
