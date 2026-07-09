@@ -99,6 +99,7 @@
   }
   .stats-card.temp h3 { color: #d8b46a; }
   .stats-card.humidity h3 { color: var(--cyan); }
+  .stats-card.pressure h3 { color: #9966ff; }
   .stats-card.thi h3 { color: var(--amber); }
   .stats-list {
     display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px;
@@ -233,6 +234,15 @@
       <div class="stat-item"><div class="stat-name">最高</div><div class="stat-value" id="humMax">--</div></div>
       <div class="stat-item"><div class="stat-name">平均</div><div class="stat-value" id="humAvg">--</div></div>
       <div class="stat-item"><div class="stat-name">波动</div><div class="stat-value" id="humRange">--</div></div>
+    </div>
+  </div>
+  <div class="stats-card pressure">
+    <h3>🧭 气压摘要</h3>
+    <div class="stats-list">
+      <div class="stat-item"><div class="stat-name">最低</div><div class="stat-value" id="pressureMin">--</div></div>
+      <div class="stat-item"><div class="stat-name">最高</div><div class="stat-value" id="pressureMax">--</div></div>
+      <div class="stat-item"><div class="stat-name">平均</div><div class="stat-value" id="pressureAvg">--</div></div>
+      <div class="stat-item"><div class="stat-name">波动</div><div class="stat-value" id="pressureRange">--</div></div>
     </div>
   </div>
   <div class="stats-card thi">
@@ -715,13 +725,14 @@ function setStatValue(id, value, unit = '', tone = 'neutral') {
 function updateStats(data) {
   const validRows = data.filter(item => Number.isFinite(item?.temp) && Number.isFinite(item?.humidity));
   if (!validRows.length) {
-    ['tempMin','tempMax','tempAvg','tempRange','humMin','humMax','humAvg','humRange','thiMin','thiMax','thiAvg','thiRange']
+    ['tempMin','tempMax','tempAvg','tempRange','humMin','humMax','humAvg','humRange','pressureMin','pressureMax','pressureAvg','pressureRange','thiMin','thiMax','thiAvg','thiRange']
       .forEach(id => setStatValue(id, null));
     return;
   }
 
   const temps = validRows.map(item => item.temp);
   const humidities = validRows.map(item => item.humidity);
+  const pressures = validRows.map(item => item.pressure).filter(v => Number.isFinite(v));
   const thiValues = validRows.map(item => computeTHI(item.temp, item.humidity));
 
   const min = arr => Math.min(...arr);
@@ -737,6 +748,15 @@ function updateStats(data) {
   setStatValue('humMax', max(humidities), '%', 'high');
   setStatValue('humAvg', avg(humidities), '%');
   setStatValue('humRange', max(humidities) - min(humidities), '%');
+
+  if (pressures.length) {
+    setStatValue('pressureMin', min(pressures), 'hPa', 'low');
+    setStatValue('pressureMax', max(pressures), 'hPa', 'high');
+    setStatValue('pressureAvg', avg(pressures), 'hPa');
+    setStatValue('pressureRange', max(pressures) - min(pressures), 'hPa');
+  } else {
+    ['pressureMin','pressureMax','pressureAvg','pressureRange'].forEach(id => setStatValue(id, null));
+  }
 
   setStatValue('thiMin', min(thiValues), '', 'low');
   setStatValue('thiMax', max(thiValues), '', 'high');
