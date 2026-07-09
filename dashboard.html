@@ -712,7 +712,7 @@ function updateLatest(data) {
   tempTimeEl.textContent = formatTime(last.time);
   humTimeEl.textContent = formatTime(last.time);
 
-  if (Number.isFinite(last.pressure)) {
+  if (Number.isFinite(last.pressure) && last.pressure > 0) {
     pressEl.innerHTML = last.pressure.toFixed(1) + ' <span class="unit">hPa</span>';
   } else {
     pressEl.innerHTML = '-- <span class="unit">hPa</span>';
@@ -749,7 +749,7 @@ function updateStats(data) {
 
   const temps = validRows.map(item => item.temp);
   const humidities = validRows.map(item => item.humidity);
-  const pressures = validRows.map(item => item.pressure).filter(v => Number.isFinite(v));
+  const pressures = validRows.map(item => item.pressure).filter(v => Number.isFinite(v) && v > 0);
   const thiValues = validRows.map(item => computeTHI(item.temp, item.humidity));
 
   const min = arr => Math.min(...arr);
@@ -787,7 +787,7 @@ function buildChart(ctx, label, data, color, unit, isTemp) {
   const values = chartData.map(d => {
     if (d.__gap) return null;
     if (unit === '%') return d.humidity;
-    if (unit === 'hPa') return d.pressure;
+    if (unit === 'hPa') return (d.pressure && d.pressure > 0) ? d.pressure : null;
     return d.temp;
   });
   // 数据点太少时至少显示点标记，不然空图让人以为没加载
