@@ -275,6 +275,10 @@
   <canvas id="humChart"></canvas>
 </div>
 <div class="chart-row">
+  <h3>🧭 气压曲线</h3>
+  <canvas id="pressureChart"></canvas>
+</div>
+<div class="chart-row">
   <h3>🌡 温湿指数 (THI)</h3>
   <canvas id="thiChart"></canvas>
 </div>
@@ -284,7 +288,7 @@
 </div>
 
 <script>
-let tempChart, humChart, thiChart;
+let tempChart, humChart, pressureChart, thiChart;
 let currentHours = 24;
 let currentDevice = '%';
 let allData = [];
@@ -296,6 +300,7 @@ const STATUS_DELAYED_MS = 10 * 60 * 1000;
 const STATUS_OFFLINE_MS = 30 * 60 * 1000;
 const colors = {
   hum:  { bg: 'rgba(0,240,255,0.1)', border: '#00f0ff', point: '#00f0ff' },
+  pressure: { bg: 'rgba(153,102,255,0.12)', border: '#9966ff', point: '#9966ff' },
 };
 
 const tempStops = [
@@ -640,7 +645,7 @@ function addGapBreaks(data) {
     const prevTs = new Date(data[i - 1].time).getTime();
     const currTs = new Date(data[i].time).getTime();
     if (Number.isFinite(prevTs) && Number.isFinite(currTs) && currTs - prevTs > gapThreshold) {
-      result.push({ time: data[i].time, temp: null, humidity: null, __gap: true });
+      result.push({ time: data[i].time, temp: null, humidity: null, pressure: null, __gap: true });
     }
     result.push(data[i]);
   }
@@ -745,6 +750,7 @@ function buildChart(ctx, label, data, color, unit, isTemp) {
   const values = chartData.map(d => {
     if (d.__gap) return null;
     if (unit === '%') return d.humidity;
+    if (unit === 'hPa') return d.pressure;
     return d.temp;
   });
   // 数据点太少时至少显示点标记，不然空图让人以为没加载
@@ -796,7 +802,7 @@ function buildChart(ctx, label, data, color, unit, isTemp) {
           callbacks: {
             label: ctx => {
               const val = ctx.parsed.y;
-              const u = unit === '%' ? '%' : '°C';
+              const u = unit;
               return `${val.toFixed(1)} ${u}`;
             }
           }
@@ -880,6 +886,7 @@ function buildTHIChart(ctx, data) {
 function renderCharts(data) {
   if (tempChart) tempChart.destroy();
   if (humChart) humChart.destroy();
+  if (pressureChart) pressureChart.destroy();
   if (thiChart) thiChart.destroy();
 
   tempChart = buildChart(
@@ -887,6 +894,9 @@ function renderCharts(data) {
   );
   humChart = buildChart(
     document.getElementById('humChart'), '湿度', data, colors.hum, '%', false
+  );
+  pressureChart = buildChart(
+    document.getElementById('pressureChart'), '气压', data, colors.pressure, 'hPa', false
   );
   thiChart = buildTHIChart(
     document.getElementById('thiChart'), data
