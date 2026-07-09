@@ -51,7 +51,7 @@
   .status-dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); }
 
   .latest-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
     margin-bottom: 20px;
   }
   .latest-card {
@@ -66,6 +66,7 @@
   }
   .latest-card .value.temp { transition: color .5s ease; }
   .latest-card .value.humidity { color: var(--cyan); }
+  .latest-card .value.pressure { color: #9966ff; }
   .latest-card .value.thi { color: var(--amber); }
   .comfort-badge {
     display: inline-block;
@@ -208,6 +209,11 @@
     <div class="label">💧 湿度</div>
     <div class="value humidity" id="latestHum">-- <span class="unit">%</span></div>
     <div class="updated" id="humTime"></div>
+  </div>
+  <div class="latest-card">
+    <div class="label">🧭 气压</div>
+    <div class="value pressure" id="latestPressure">-- <span class="unit">hPa</span></div>
+    <div class="updated" id="pressureTime"></div>
   </div>
   <div class="latest-card">
     <div class="label">🌡 温湿指数 (THI)</div>
@@ -666,21 +672,25 @@ function addGapBreaks(data) {
 function updateLatest(data) {
   const tempEl = document.getElementById('latestTemp');
   const humEl = document.getElementById('latestHum');
+  const pressEl = document.getElementById('latestPressure');
   const thiEl = document.getElementById('latestThi');
   const badge = document.getElementById('comfortBadge');
   const tempTimeEl = document.getElementById('tempTime');
   const humTimeEl = document.getElementById('humTime');
+  const pressTimeEl = document.getElementById('pressureTime');
   const thiTimeEl = document.getElementById('thiTime');
 
   const resetLatest = () => {
     tempEl.innerHTML = '-- <span class="unit">°C</span>';
     tempEl.style.color = '';
     humEl.innerHTML = '-- <span class="unit">%</span>';
+    pressEl.innerHTML = '-- <span class="unit">hPa</span>';
     thiEl.textContent = '--';
     badge.textContent = '--';
     badge.className = 'comfort-badge';
     tempTimeEl.textContent = '';
     humTimeEl.textContent = '';
+    pressTimeEl.textContent = '';
     thiTimeEl.textContent = '';
   };
 
@@ -701,6 +711,13 @@ function updateLatest(data) {
   humEl.innerHTML = last.humidity.toFixed(1) + ' <span class="unit">%</span>';
   tempTimeEl.textContent = formatTime(last.time);
   humTimeEl.textContent = formatTime(last.time);
+
+  if (Number.isFinite(last.pressure)) {
+    pressEl.innerHTML = last.pressure.toFixed(1) + ' <span class="unit">hPa</span>';
+  } else {
+    pressEl.innerHTML = '-- <span class="unit">hPa</span>';
+  }
+  pressTimeEl.textContent = formatTime(last.time);
 
   const thi = computeTHI(last.temp, last.humidity);
   const comfort = getComfortLevel(thi);
