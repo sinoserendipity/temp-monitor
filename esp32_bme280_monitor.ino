@@ -15,9 +15,9 @@
 #include <ArduinoJson.h>
 
 // ====== 修改这里的配置 ======
-const char* WIFI_SSID     = "你的WiFi名称";
-const char* WIFI_PASSWORD = "你的WiFi密码";
-const char* SERVER_HOST   = "192.168.1.100";  // 跑 server.py 的电脑 IP
+const char* WIFI_SSID     = "your_wifi_ssid";
+const char* WIFI_PASSWORD = "your_wifi_password";
+const char* SERVER_HOST   = "your_server_ip_address";  // 跑 server.py 的电脑 IP
 const int   SERVER_PORT   = 5000;
 const char* DEVICE_NAME   = "客厅";            // 传感器位置名称
 const int   INTERVAL_SEC  = 60;                // 上报间隔（秒）
@@ -30,6 +30,40 @@ uint8_t bmeAddress = 0x76;
 
 unsigned long lastSend = 0;
 int consecutive_failures = 0;
+
+// 传感器读数结构体
+struct BmeReading {
+  float temp;
+  float humidity;
+  float pressure;
+
+  bool isValid() const {
+    if (isnan(temp) || isnan(humidity) || isnan(pressure)) return false;
+    if (temp < -40.0f || temp > 85.0f) return false;        // BME280 工作范围
+    if (humidity < 0.0f || humidity > 100.0f) return false;
+    if (pressure < 300.0f || pressure > 1100.0f) return false; // hPa
+    return true;
+  }
+
+  void print() const {
+    Serial.print("🌡 ");
+    Serial.print(temp);
+    Serial.print("°C  💧 ");
+    Serial.print(humidity);
+    Serial.print("%  📊 ");
+    Serial.print(pressure);
+    Serial.println(" hPa");
+  }
+};
+
+// ---------- 函数声明 ----------
+void connectWiFi();
+bool initBME280();
+BmeReading readBME280();
+bool readAndSend();
+void sendData(const BmeReading& reading);
+
+// ========== 函数实现 ==========
 
 void connectWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
@@ -74,10 +108,41 @@ bool initBME280() {
   }
 
   Serial.println("⚠ 未检测到 BME280，检查接线");
+  bmeAddress = 0x76; // 重置为默认地址
   return false;
 }
 
-void sendData(float temp, float humidity, float pressure) {
+BmeReading readBME280() {
+  BmeReading reading;
+  reading.temp     = bme.readTemperature();
+  reading.humidity = bme.readHumidity();
+  reading.pressure = bme.readPressure() / 100.0F; // Pa -> hPa
+  return reading;
+}
+
+// 读取、校验、打印、发送——完整的一次采集周期
+bool readAndSend() {
+  BmeReading reading = readBME280();
+
+  // 如果数值无效，尝试重新初始化传感器后重试一次
+  if (!reading.isValid()) {
+    Serial.println("⚠ BME280 数据无效，尝试重新初始化...");
+    if (bme.begin(bmeAddress)) {
+      reading = readBME280();
+    }
+  }
+
+  if (!reading.isValid()) {
+    Serial.println("⚠ BME280 读取失败，跳过本轮");
+    return false;
+  }
+
+  reading.print();
+  sendData(reading);
+  return true;
+}
+
+void sendData(const BmeReading& reading) {
   if (WiFi.status() != WL_CONNECTED) {
     connectWiFi();
   }
@@ -85,9 +150,9 @@ void sendData(float temp, float humidity, float pressure) {
   // 组装 JSON
   JsonDocument doc;
   doc["device"]    = DEVICE_NAME;
-  doc["temp"]      = temp;
-  doc["humidity"]  = humidity;
-  doc["pressure"]  = pressure;
+  doc["temp"]      = reading.temp;
+  doc["humidity"]  = reading.humidity;
+  doc["pressure"]  = reading.pressure;
 
   String json;
   serializeJson(doc, json);
@@ -97,7 +162,7 @@ void sendData(float temp, float humidity, float pressure) {
 
   // HTTP POST
   WiFiClient client;
-  client.setTimeout(10); // 设置读写超时（10秒）
+  client.setTimeout(10000); // 设置读写超时（10秒）
 
   if (!client.connect(SERVER_HOST, SERVER_PORT)) {
     Serial.println("⚠ 连接服务器失败");
@@ -130,6 +195,7 @@ void sendData(float temp, float humidity, float pressure) {
       client.stop();
       return;
     }
+    delay(1); // 让 WDT 有机会喂狗
   }
 
   // 读第一行响应状态
@@ -156,25 +222,7 @@ void setup() {
   }
 
   // 连接后立即读取并上报一次
-  if (bme.begin(bmeAddress)) {
-    float temp      = bme.readTemperature();
-    float humidity  = bme.readHumidity();
-    float pressure  = bme.readPressure() / 100.0F; // Pa -> hPa
-
-    if (!isnan(temp) && !isnan(humidity) && !isnan(pressure)) {
-      Serial.print("🌡 ");
-      Serial.print(temp);
-      Serial.print("°C  💧 ");
-      Serial.print(humidity);
-      Serial.print("%  📊 ");
-      Serial.print(pressure);
-      Serial.println(" hPa");
-
-      sendData(temp, humidity, pressure);
-    } else {
-      Serial.println("⚠ 首次 BME280 读取失败");
-    }
-  }
+  readAndSend();
   lastSend = millis();
 
   Serial.println("\n🟢 开始运行，每 " + String(INTERVAL_SEC) + " 秒上报一次\n");
@@ -187,22 +235,5 @@ void loop() {
   }
   lastSend = now;
 
-  if (!bme.begin(bmeAddress)) {
-    Serial.println("⚠ BME280 读取失败，跳过本轮");
-    return;
-  }
-
-  float temp      = bme.readTemperature();
-  float humidity  = bme.readHumidity();
-  float pressure  = bme.readPressure() / 100.0F;  // Pa -> hPa
-
-  Serial.print("🌡 ");
-  Serial.print(temp);
-  Serial.print("°C  💧 ");
-  Serial.print(humidity);
-  Serial.print("%  📊 ");
-  Serial.print(pressure);
-  Serial.println(" hPa");
-
-  sendData(temp, humidity, pressure);
+  readAndSend();
 }
